@@ -39,35 +39,33 @@ function actualizarMonto() {
     `Monto total: ${total} Bs`;
 }
 
-async function cargarTickets(cuantosMostrar = cantidadTicketsAMostrar) {
- await obtenerCantidadGlobal();
+async function cargarTickets(){
+ const { data: conf } = await supabase
+    .from('config')
+    .select('valor')
+    .eq('clave', 'tickets_visibles')
+    .maybeSingle();
+
+  console.log("Tipo de conf.valor:", typeof conf?.valor, conf?.valor);
+
+  const maxTickets = parseInt(conf?.valor) > 0 ? parseInt(conf.valor) : 100;
+  console.log("maxTickets a usar:", maxTickets);
+
+  
   const { data, error } = await supabase
     .from('tickets')
     .select('*')
-    .eq('disponible', true);
+    .eq('disponible', true)
+    .order('numero', { ascending: true })
+   .limit(maxTickets);
 
-  if (error) {
-    alert('Error cargando tickets');
-    return;
-  }
-
-  let ticketsAleatorios = [];
-  if (data.length > cuantosMostrar) {
-    let copia = data.slice();
-    for (let i = copia.length - 1; i > 0; i--) {
-      let j = Math.floor(Math.random() * (i + 1));
-      [copia[i], copia[j]] = [copia[j], copia[i]];
-    }
-    ticketsAleatorios = copia.slice(0, cuantosMostrar);
-  } else {
-    ticketsAleatorios = data;
-  }
+  console.log(data, error); // <-- Agrega esto para depurar
 
   const grid = document.getElementById('ticketGrid');
   grid.innerHTML = '';
   seleccionados = [];
-  actualizarMonto && actualizarMonto();
-  (ticketsAleatorios || []).forEach(ticket => {
+   actualizarMonto();
+  (data || []).forEach(ticket => {
     const div = document.createElement('div');
     div.className = 'ticket';
     div.textContent = ticket.numero;
@@ -79,14 +77,15 @@ async function cargarTickets(cuantosMostrar = cantidadTicketsAMostrar) {
         seleccionados.push(ticket.numero);
         div.classList.add('selected');
       }
-      actualizarMonto && actualizarMonto();
+         actualizarMonto();
     };
     grid.appendChild(div);
   });
-  if (!ticketsAleatorios.length) {
+  if (!data || data.length === 0) {
     grid.innerHTML = '<div style="color:#ff4343;">No hay tickets disponibles.</div>';
   }
 }
+
 
 async function confirmarTickets() {
   if (seleccionados.length < 2) {
@@ -201,15 +200,26 @@ async function loginAdmin() {
 }
 
 async function cargarComprobantes() {
-  const { data, error } = await supabase.from('comprobantes').select('*,usuarios(cedula,nombre,telefono)').order('created_at', {ascending: false});
+  // 1. Leer la cantidad de tickets visibles de la config
+  const { data: conf } = await supabase.from('config')
+    .select('valor')
+    .eq('clave', 'tickets_visibles')
+    .maybeSingle();
 
+  // 2. Mostrar el valor actual en el input (por defecto 100 si no hay valor)
+  document.getElementById('cantidadTicketsMostrar').value = conf?.valor || 100;
+
+  // 3. Cargar y mostrar los comprobantes como antes
+  const { data, error } = await supabase
+    .from('comprobantes')
+    .select('*,usuarios(cedula,nombre,telefono)')
+    .order('created_at', { ascending: false });
 
   let totalTickets = 0, totalMonto = 0;
   const lista = document.getElementById('listaComprobantes');
   lista.innerHTML = '';
   (data || []).forEach(c => {
     totalTickets += c.tickets.length;
-    // Suponiendo precio por ticket: 1$
     totalMonto += c.tickets.length * PRECIO_TICKET;
     const div = document.createElement('div');
     div.className = 'comprobante-card';
@@ -311,45 +321,8 @@ function irInicio() {
   ocultarTodo();
   document.getElementById('inicio').style.display = '';
 }
-let cantidadTicketsAMostrar = 100;
-function aplicarCantidadTickets() {
-  const cantidad = parseInt(document.getElementById('cantidadMostrarTickets').value) || 100;
-  cantidadTicketsAMostrar = cantidad;
-  cargarTickets(cantidadTicketsAMostrar);
-
-  // Muestra el mensaje de confirmación
-  const mensaje = document.getElementById('mensajeAplicar');
-  mensaje.textContent = "¡Cantidad aplicada!";
-  setTimeout(() => { mensaje.textContent = ""; }, 2000); // Se borra después de 2 segundos
+async function guardarCantidadTickets() {
+  const cant = parseInt(document.getElementById('cantidadTicketsMostrar').value, 10) || 100;
+  await supabase.from('config').upsert([{ clave: 'tickets_visibles', valor: cant }]);
+  alert("Cantidad actualizada correctamente");
 }
-  async function obtenerCantidadGlobal() {
-  const { data } = await supabase
-    .from('parametros')
-    .select('valor')
-    .eq('clave', 'tickets_mostrar')
-    .maybeSingle();
-  cantidadTicketsAMostrar = parseInt(data?.valor) || 100;
-}
-
-supabase
-  .channel('tickets_changes')
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, payload => {
-    // SOLO ACTUALIZA SI EL USUARIO ESTÁ EN LA PANTALLA DE SELECCIÓN
-    if (document.getElementById('seleccion') && document.getElementById('seleccion').style.display !== 'none') {
-      cargarTickets();
-    }
-  })
-  .subscribe();
-
-// Mostrar inicio al arrancar
-ocultarTodo();
-document.getElementById('inicio').style.display = '';
-supabase
-  .channel('parametros_channel')
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'parametros' }, async (payload) => {
-    // Si cambió tickets_mostrar, vuelve a recargar tickets
-    if (payload.new?.clave === 'tickets_mostrar' || payload.old?.clave === 'tickets_mostrar') {
-      await cargarTickets(); // así todos ven la nueva cantidad
-    }
-  })
-  .subscribe();
