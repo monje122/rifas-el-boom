@@ -1,0 +1,90 @@
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: linear-gradient(to right, #232526, #414345);
+  color: #fff;
+  margin: 0;
+  min-height: 100vh;
+}
+#app {
+  max-width: 540px;
+  margin: auto;
+  background: rgba(30,30,30,0.98);
+  border-radius: 16px;
+  margin-top: 24px;
+  box-shadow: 0 6px 32px #0009;
+  padding: 24px 16px 40px 16px;
+}
+h1, h2 { color: #00ffd7; }
+input, button {
+  padding: 10px;
+  margin: 7px 0;
+  border-radius: 7px;
+  border: none;
+  width: 90%;
+  font-size: 1.09em;
+}
+button {
+  background: #00ffd7;
+  color: #222;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background .18s;
+  margin-bottom: 8px;
+}
+button:hover { background: #03a9f4; color: #fff; }
+#ticketGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(85px, 1fr));
+  gap: 8px;
+  margin: 18px 0 10px 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.ticket {
+  background: #262a32;
+  color: #00ffd7;
+  font-weight: bold;
+  font-size: 1.15em;
+  text-align: center;
+  padding: 12px 0;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background .2s;
+  border: 2px solid #333;
+}
+.ticket.selected {
+  background: #00ffd7;
+  color: #262a32;
+  border: 2px solid #00ffd7;
+}
+ul { list-style: none; padding: 0; }
+#maquinaSorteo {
+  font-size: 2.5em;
+  font-family: 'Courier New', monospace;
+  margin: 26px auto;
+  background: #232526;
+  padding: 12px 0;
+  width: 220px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px #0008;
+  letter-spacing: 3px;
+}
+#ganador { font-weight: bold; font-size: 1.1em; color: #00ffd7; margin-top: 15px; }
+.comprobante-card {
+  background: #292d34;
+  margin: 8px 0;
+  padding: 10px;
+  border-radius: 7px;
+  text-align: left;
+}
+.comprobante-card .acciones button {
+  width: 32%;
+  font-size: 0.97em;
+  margin-right: 5px;
+  margin-top: 8px;
+}
+.comprobante-card .acciones .pendiente { color: #ff4343; font-weight: bold; }
+.comprobante-card .acciones .aprobado { color: #00ff66; font-weight: bold; }
+.comprobante-card .acciones .rechazado { color: #ffb200; font-weight: bold; }
+::-webkit-scrollbar { width: 6px; background: #222; }
+::-webkit-scrollbar-thumb { background: #00ffd7; border-radius: 3px; }
