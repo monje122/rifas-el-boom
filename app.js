@@ -39,20 +39,34 @@ function actualizarMonto() {
     `Monto total: ${total} Bs`;
 }
 
-async function cargarTickets() {
+async function cargarTickets(cuantosMostrar = cantidadTicketsAMostrar) {
   const { data, error } = await supabase
     .from('tickets')
     .select('*')
-    .eq('disponible', true)
-    .order('numero', { ascending: true });
+    .eq('disponible', true);
 
-  console.log(data, error); // <-- Agrega esto para depurar
+  if (error) {
+    alert('Error cargando tickets');
+    return;
+  }
+
+  let ticketsAleatorios = [];
+  if (data.length > cuantosMostrar) {
+    let copia = data.slice();
+    for (let i = copia.length - 1; i > 0; i--) {
+      let j = Math.floor(Math.random() * (i + 1));
+      [copia[i], copia[j]] = [copia[j], copia[i]];
+    }
+    ticketsAleatorios = copia.slice(0, cuantosMostrar);
+  } else {
+    ticketsAleatorios = data;
+  }
 
   const grid = document.getElementById('ticketGrid');
   grid.innerHTML = '';
   seleccionados = [];
-   actualizarMonto();
-  (data || []).forEach(ticket => {
+  actualizarMonto && actualizarMonto();
+  (ticketsAleatorios || []).forEach(ticket => {
     const div = document.createElement('div');
     div.className = 'ticket';
     div.textContent = ticket.numero;
@@ -64,15 +78,14 @@ async function cargarTickets() {
         seleccionados.push(ticket.numero);
         div.classList.add('selected');
       }
-         actualizarMonto();
+      actualizarMonto && actualizarMonto();
     };
     grid.appendChild(div);
   });
-  if (!data || data.length === 0) {
+  if (!ticketsAleatorios.length) {
     grid.innerHTML = '<div style="color:#ff4343;">No hay tickets disponibles.</div>';
   }
 }
-
 
 async function confirmarTickets() {
   if (seleccionados.length < 2) {
@@ -188,6 +201,8 @@ async function loginAdmin() {
 
 async function cargarComprobantes() {
   const { data, error } = await supabase.from('comprobantes').select('*,usuarios(cedula,nombre,telefono)').order('created_at', {ascending: false});
+
+
   let totalTickets = 0, totalMonto = 0;
   const lista = document.getElementById('listaComprobantes');
   lista.innerHTML = '';
@@ -295,3 +310,27 @@ function irInicio() {
   ocultarTodo();
   document.getElementById('inicio').style.display = '';
 }
+let cantidadTicketsAMostrar = 100;
+function aplicarCantidadTickets() {
+  const cantidad = parseInt(document.getElementById('cantidadMostrarTickets').value) || 100;
+  cantidadTicketsAMostrar = cantidad;
+  cargarTickets(cantidadTicketsAMostrar);
+
+  // Muestra el mensaje de confirmación
+  const mensaje = document.getElementById('mensajeAplicar');
+  mensaje.textContent = "¡Cantidad aplicada!";
+  setTimeout(() => { mensaje.textContent = ""; }, 2000); // Se borra después de 2 segundos
+}
+supabase
+  .channel('tickets_changes')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, payload => {
+    // SOLO ACTUALIZA SI EL USUARIO ESTÁ EN LA PANTALLA DE SELECCIÓN
+    if (document.getElementById('seleccion') && document.getElementById('seleccion').style.display !== 'none') {
+      cargarTickets();
+    }
+  })
+  .subscribe();
+
+// Mostrar inicio al arrancar
+ocultarTodo();
+document.getElementById('inicio').style.display = '';
