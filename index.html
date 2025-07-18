@@ -78,6 +78,13 @@
       <div id="listaComprobantes"></div>
       <p id="totales"></p>
       <button onclick="reiniciarTodo()">Reiniciar Todo</button>
+      <div style="margin:10px 0;">
+  <label for="cantidadMostrarTickets">Cantidad de tickets a mostrar:</label>
+  <input type="number" id="cantidadMostrarTickets" min="1" max="10000" value="100">
+  <button onclick="aplicarCantidadTickets()">Aplicar</button>
+        <span id="mensajeAplicar" style="color:#00ffd7;font-weight:bold;margin-left:10px;"></span>
+</div>
+
       <button onclick="agregarTickets()">Agregar más tickets</button>
       <button onclick="cerrarAdmin()">Cerrar Admin</button>
     </section>
