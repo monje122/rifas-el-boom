@@ -121,7 +121,9 @@ async function subirComprobante() {
   }
 
   // 2. Obtener URL PÚBLICA
-  const url = supabase.storage.from('comprobantes').getPublicUrl(nombreArchivo).publicUrl;
+  const { data, error } = supabase.storage.from('comprobantes').getPublicUrl(nombreArchivo);
+const url = data.publicUrl;
+
   console.log("URL comprobante que se va a guardar:", url);
 
   if (!url) {
