@@ -40,6 +40,7 @@ function actualizarMonto() {
 }
 
 async function cargarTickets(cuantosMostrar = cantidadTicketsAMostrar) {
+ await obtenerCantidadGlobal();
   const { data, error } = await supabase
     .from('tickets')
     .select('*')
@@ -321,6 +322,15 @@ function aplicarCantidadTickets() {
   mensaje.textContent = "¡Cantidad aplicada!";
   setTimeout(() => { mensaje.textContent = ""; }, 2000); // Se borra después de 2 segundos
 }
+  async function obtenerCantidadGlobal() {
+  const { data } = await supabase
+    .from('parametros')
+    .select('valor')
+    .eq('clave', 'tickets_mostrar')
+    .maybeSingle();
+  cantidadTicketsAMostrar = parseInt(data?.valor) || 100;
+}
+
 supabase
   .channel('tickets_changes')
   .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, payload => {
@@ -334,3 +344,12 @@ supabase
 // Mostrar inicio al arrancar
 ocultarTodo();
 document.getElementById('inicio').style.display = '';
+supabase
+  .channel('parametros_channel')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'parametros' }, async (payload) => {
+    // Si cambió tickets_mostrar, vuelve a recargar tickets
+    if (payload.new?.clave === 'tickets_mostrar' || payload.old?.clave === 'tickets_mostrar') {
+      await cargarTickets(); // así todos ven la nueva cantidad
+    }
+  })
+  .subscribe();
