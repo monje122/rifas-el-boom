@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Rifa Premium</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <div id="app">
+    <!-- Pantalla principal -->
+    <section id="inicio">
+      <h1>🎟️ Rifa Premium</h1>
+      <button onclick="mostrarRegistro()">Registrarse</button>
+      <button onclick="mostrarConsulta()">Consultar</button>
+      <button onclick="mostrarAdmin()">Admin</button>
+      <button onclick="mostrarSorteador()">Sorteador</button>
+    </section>
+
+    <!-- Registro -->
+    <section id="registro" style="display:none;">
+      <h2>Registro</h2>
+      <input id="cedula" placeholder="Cédula" />
+      <input id="nombre" placeholder="Nombre completo" />
+      <input id="telefono" placeholder="Teléfono" />
+      <button onclick="validarRegistro()">Continuar</button>
+      <button class="btn-inicio" onclick="irInicio()">Inicio</button>
+
+    </section>
+
+    <!-- Selección de Tickets -->
+   <section id="seleccion" style="display:none;">
+  <h2>Selecciona tus tickets</h2>
+  <div id="ticketGrid"></div>
+  <div id="montoSeleccionado" style="margin:10px 0;font-weight:bold;"></div>
+  <button onclick="confirmarTickets()">Continuar</button>
+  <button class="btn-inicio" onclick="irInicio()">Inicio</button>
+</section>
+
+
+    <!-- Pago -->
+    <section id="pago" style="display:none;">
+  <h2>Pago</h2>
+  <p>Realiza tu pago móvil y sube el comprobante:</p>
+  <div id="montoPago" style="font-weight:bold;margin-bottom:10px;"></div>
+  <h2>Pago Móvil</h2>
+  <p>Banco: Venezuela(0102)</p>
+  <p>Teléfono:0412-1890444</p>
+  <p>Cédula: 21286069</p>
+  <input type="file" id="comprobante" />
+  <button onclick="subirComprobante()">Enviar</button>
+  <button class="btn-inicio" onclick="irInicio()">Inicio</button>
+</section>
+
+
+    <!-- Consulta -->
+    <section id="consulta" style="display:none;">
+      <h2>Consulta tus tickets</h2>
+      <input id="consultaCedula" placeholder="Cédula" />
+      <button onclick="consultarTickets()">Consultar</button>
+      <ul id="resultadosConsulta"></ul>
+      <button class="btn-inicio" onclick="irInicio()">Inicio</button>
+
+    </section>
+
+    <!-- Panel Admin -->
+    <section id="adminLogin" style="display:none;">
+      <h2>Panel Admin</h2>
+      <input id="adminCorreo" placeholder="Correo" />
+      <input id="adminClave" type="password" placeholder="Clave" />
+      <button onclick="loginAdmin()">Entrar</button>
+      <button class="btn-inicio" onclick="irInicio()">Inicio</button>
+
+    </section>
+
+    <section id="adminPanel" style="display:none;">
+      <h2>Comprobantes</h2>
+      <div id="listaComprobantes"></div>
+      <p id="totales"></p>
+      <button onclick="reiniciarTodo()">Reiniciar Todo</button>
+      <button onclick="agregarTickets()">Agregar más tickets</button>
+      <button onclick="cerrarAdmin()">Cerrar Admin</button>
+    </section>
+
+    <!-- Sorteador -->
+    <section id="sorteador" style="display:none;">
+      <h2>🎰 Sorteador</h2>
+      <div id="maquinaSorteo">000000</div>
+      <button onclick="iniciarSorteo()">Iniciar Sorteo</button>
+      <div id="ganador"></div>
+      <button class="btn-inicio" onclick="irInicio()">Inicio</button>
+    </section>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
