@@ -40,6 +40,7 @@ function actualizarMonto() {
 }
 
 async function cargarTickets(){
+   await liberarTicketsVencidos();
  const { data: conf } = await supabase
     .from('config')
     .select('valor')
@@ -85,6 +86,19 @@ async function cargarTickets(){
     grid.innerHTML = '<div style="color:#ff4343;">No hay tickets disponibles.</div>';
   }
 }
+async function liberarTicketsVencidos() {
+  const hace7min = new Date(Date.now() - 7 * 60 * 1000).toISOString();
+  // Libera los tickets reservados hace más de 7 minutos y que siguen no disponibles
+  const { data, error } = await supabase
+    .from('tickets')
+    .update({ disponible: true, reservado_por: null, reservado_en: null })
+    .lt('reservado_en', hace7min)
+    .eq('disponible', false);
+
+  if (error) {
+    console.error("Error liberando tickets vencidos:", error);
+  }
+}
 
 
 async function confirmarTickets() {
@@ -92,27 +106,62 @@ async function confirmarTickets() {
     alert('Debes seleccionar al menos 2 tickets');
     return;
   }
-  // 1. Inserta usuario si no existe
+  // 1. Asegúrate de tener el usuario en la BD
   let { data: existe } = await supabase.from('usuarios').select('id').eq('cedula', usuarioActual.cedula).maybeSingle();
   let user_id = existe?.id;
   if (!user_id) {
-    let { data: insertado, error } = await supabase.from('usuarios').insert(usuarioActual).select('id').single();
+    let { data: insertado } = await supabase.from('usuarios').insert(usuarioActual).select('id').single();
     user_id = insertado.id;
   }
   usuarioActual.id = user_id;
 
-  // 2. Reserva los tickets
-  await Promise.all(seleccionados.map(num => supabase
-    .from('tickets')
-    .update({ disponible: false, reservado_por: user_id })
-    .eq('numero', num)
-  ));
+  // 2. Intenta reservar cada ticket SOLO si sigue disponible y guarda la hora
+  let exitosos = [];
+  const now = new Date().toISOString();
+  for (let num of seleccionados) {
+    const { data, error } = await supabase
+      .from('tickets')
+      .update({ 
+        disponible: false, 
+        reservado_por: user_id, 
+        reservado_en: now            // <-- ¡Aquí guardas la hora de reserva!
+      })
+      .eq('numero', num)
+      .eq('disponible', true)
+      .select()
+      .single();
+
+    if (data) exitosos.push(num);
+  }
+
+  // 3. Si no pudo reservar todos, libera los reservados y pide reintentar
+  if (exitosos.length !== seleccionados.length) {
+    // Libera los tickets que sí logró reservar en este intento
+    for (let num of exitosos) {
+      await supabase
+        .from('tickets')
+        .update({ disponible: true, reservado_por: null, reservado_en: null })
+        .eq('numero', num);
+    }
+    alert(
+      `⚠️ ¡Algunos tickets ya no estaban disponibles!\n\nSolo se apartaron estos: ${exitosos.join(', ')}.\nSelecciona otros y vuelve a intentar.`
+    );
+    // Recarga la grilla de tickets
+    await cargarTickets();
+    return;
+  }
+
+  // 4. Si todo salió bien, sigue al pago
   ocultarTodo();
   document.getElementById('pago').style.display = '';
-   document.getElementById('montoPago').textContent =
+  document.getElementById('montoPago').textContent =
     `Monto a pagar: ${seleccionados.length * PRECIO_TICKET} Bs`;
   document.getElementById('comprobante').value = '';
+
+  // (Opcional) Inicia el temporizador visual de 7 minutos en la pantalla de pago
+  if (typeof iniciarTimerReserva === "function") iniciarTimerReserva();
 }
+
 
 // ----------- COMPROBANTE -----------
 async function subirComprobante() {
@@ -261,21 +310,58 @@ window.eliminarComprobante = async function(id) {
   cargarComprobantes();
 }
 window.reiniciarTodo = async function() {
-  if (!confirm('¿Seguro de reiniciar? Esto borra todo.')) return;
-  await supabase.from('comprobantes').delete().neq('id', '');
-  await supabase.from('usuarios').delete().neq('id', '');
-  await supabase.from('tickets').update({disponible: true, reservado_por: null});
-  cargarComprobantes();
-}
-window.agregarTickets = async function() {
-  let desde = prompt("Número de inicio (ej: 1000 para 001000):");
-  let cuantos = prompt("¿Cuántos tickets agregar?");
-  desde = parseInt(desde); cuantos = parseInt(cuantos);
-  if (isNaN(desde) || isNaN(cuantos)) return;
-  for (let i = desde; i < desde + cuantos; i++) {
-    const num = String(i).padStart(6, '0');
-    await supabase.from('tickets').insert({numero: num, disponible: true});
+  if (!confirm('¿Seguro de reiniciar? Esto borra todo (tickets, usuarios, comprobantes, y archivos de Storage).')) return;
+
+  // 1. Borra comprobantes
+  const { error: errComprobantes } = await supabase.from('comprobantes').delete();
+  if (errComprobantes) {
+    console.error("Error borrando comprobantes:", errComprobantes);
+    alert("Error borrando comprobantes: " + errComprobantes.message);
+  } else {
+    console.log("Comprobantes borrados correctamente.");
   }
+
+  // 2. Borra usuarios
+  const { error: errUsuarios } = await supabase.from('usuarios').delete();
+  if (errUsuarios) {
+    console.error("Error borrando usuarios:", errUsuarios);
+    alert("Error borrando usuarios: " + errUsuarios.message);
+  } else {
+    console.log("Usuarios borrados correctamente.");
+  }
+
+  // 3. Limpia tickets (no los borra)
+  const { error: errTickets } = await supabase.from('tickets').update({
+    disponible: true,
+    reservado_por: null,
+    reservado_en: null
+  }).not('id', 'is', null); // <-- esto agrega un WHERE obligatorio
+  if (errTickets) {
+    console.error("Error limpiando tickets:", errTickets);
+    alert("Error limpiando tickets: " + errTickets.message);
+  } else {
+    console.log("Tickets reseteados correctamente.");
+  }
+
+  // 4. Borra archivos del bucket Storage (solo raíz)
+  const { data: archivos, error: errorArchivos } = await supabase.storage.from('comprobantes').list('', { limit: 1000 });
+  if (errorArchivos) {
+    console.error("Error listando archivos:", errorArchivos);
+    alert("Error listando archivos en Storage: " + errorArchivos.message);
+  } else if (archivos && archivos.length) {
+    const nombres = archivos.map(f => f.name);
+    const { error: errorBorrado } = await supabase.storage.from('comprobantes').remove(nombres);
+    if (errorBorrado) {
+      console.error("Error borrando archivos:", errorBorrado);
+      alert("Error borrando archivos en Storage: " + errorBorrado.message);
+    } else {
+      console.log("Archivos de Storage borrados correctamente.");
+    }
+  } else {
+    console.log("No hay archivos a borrar en Storage.");
+  }
+
+  alert('¡Intento de reinicio completado! Revisa la consola para ver posibles errores.');
   cargarComprobantes();
 }
 
