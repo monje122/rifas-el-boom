@@ -51,7 +51,20 @@ async function cargarTickets(){
 
   const maxTickets = parseInt(conf?.valor) > 0 ? parseInt(conf.valor) : 100;
   console.log("maxTickets a usar:", maxTickets);
+ // *** 1. Contar tickets disponibles ***
+   // Total de tickets (no importa si están reservados o no)
+   const { count: totalTickets } = await supabase
+     .from('tickets')
+     .select('*', { count: 'exact', head: true });
 
+   // Tickets disponibles actualmente
+   const { count: disponibles } = await supabase
+     .from('tickets')
+     .select('*', { count: 'exact', head: true })
+     .eq('disponible', true);
+
+   // Muestra el contador en la interfaz
+   document.getElementById('ticketContador').textContent = `${disponibles} de ${totalTickets} disponibles`;
   
   const { data, error } = await supabase
     .from('tickets')
@@ -301,6 +314,12 @@ window.rechazarComprobante = async function(id) {
   const { data } = await supabase.from('comprobantes').select('tickets,usuario_id').eq('id', id).single();
   await Promise.all(data.tickets.map(num => supabase.from('tickets').update({disponible: true, reservado_por: null}).eq('numero', num)));
   await supabase.from('comprobantes').update({aprobado: false, rechazado: true}).eq('id', id);
+  cargarComprobantes();
+}
+window.eliminarComprobante = async function(id) {
+  const { data } = await supabase.from('comprobantes').select('tickets,usuario_id').eq('id', id).single();
+  await Promise.all(data.tickets.map(num => supabase.from('tickets').update({disponible: true, reservado_por: null}).eq('numero', num)));
+  await supabase.from('comprobantes').delete().eq('id', id);
   cargarComprobantes();
 }
 window.reiniciarTodo = async function() {
