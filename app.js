@@ -303,67 +303,59 @@ window.rechazarComprobante = async function(id) {
   await supabase.from('comprobantes').update({aprobado: false, rechazado: true}).eq('id', id);
   cargarComprobantes();
 }
-window.eliminarComprobante = async function(id) {
-  const { data } = await supabase.from('comprobantes').select('tickets,usuario_id').eq('id', id).single();
-  await Promise.all(data.tickets.map(num => supabase.from('tickets').update({disponible: true, reservado_por: null}).eq('numero', num)));
-  await supabase.from('comprobantes').delete().eq('id', id);
-  cargarComprobantes();
-}
 window.reiniciarTodo = async function() {
   if (!confirm('¿Seguro de reiniciar? Esto borra todo (tickets, usuarios, comprobantes, y archivos de Storage).')) return;
 
-  // 1. Borra comprobantes
-  const { error: errComprobantes } = await supabase.from('comprobantes').delete();
-  if (errComprobantes) {
-    console.error("Error borrando comprobantes:", errComprobantes);
-    alert("Error borrando comprobantes: " + errComprobantes.message);
-  } else {
-    console.log("Comprobantes borrados correctamente.");
+  // 1. Libera todos los tickets asociados a comprobantes antes de borrar
+  const { data: comprobantes, error: errorComp } = await supabase.from('comprobantes').select('tickets');
+  if (errorComp) {
+    console.error("Error consultando comprobantes:", errorComp);
+    alert("Error consultando comprobantes: " + errorComp.message);
+    return;
+  }
+  if (comprobantes && comprobantes.length) {
+    // Junta todos los tickets asociados
+    let todosLosTickets = [];
+    comprobantes.forEach(c => { if (c.tickets && Array.isArray(c.tickets)) todosLosTickets = todosLosTickets.concat(c.tickets); });
+    // Quita duplicados
+    todosLosTickets = [...new Set(todosLosTickets)];
+    // Libera todos los tickets
+    for (let num of todosLosTickets) {
+      await supabase
+        .from('tickets')
+        .update({ disponible: true, reservado_por: null, reservado_en: null })
+        .eq('numero', num);
+    }
   }
 
-  // 2. Borra usuarios
-  const { error: errUsuarios } = await supabase.from('usuarios').delete();
-  if (errUsuarios) {
-    console.error("Error borrando usuarios:", errUsuarios);
-    alert("Error borrando usuarios: " + errUsuarios.message);
-  } else {
-    console.log("Usuarios borrados correctamente.");
-  }
+  // 2. Borra todos los comprobantes (con un WHERE trivial)
+  await supabase.from('comprobantes').delete().not('id', 'is', null);
 
-  // 3. Limpia tickets (no los borra)
-  const { error: errTickets } = await supabase.from('tickets').update({
+  // 3. Borra todos los usuarios (con un WHERE trivial)
+  await supabase.from('usuarios').delete().not('id', 'is', null);
+
+  // 4. Limpia todos los tickets (los deja disponibles)
+  await supabase.from('tickets').update({
     disponible: true,
     reservado_por: null,
     reservado_en: null
-  }).not('id', 'is', null); // <-- esto agrega un WHERE obligatorio
-  if (errTickets) {
-    console.error("Error limpiando tickets:", errTickets);
-    alert("Error limpiando tickets: " + errTickets.message);
-  } else {
-    console.log("Tickets reseteados correctamente.");
-  }
+  }).not('numero', 'is', null);
 
-  // 4. Borra archivos del bucket Storage (solo raíz)
+  // 5. Borra archivos del bucket Storage (solo raíz)
   const { data: archivos, error: errorArchivos } = await supabase.storage.from('comprobantes').list('', { limit: 1000 });
-  if (errorArchivos) {
-    console.error("Error listando archivos:", errorArchivos);
-    alert("Error listando archivos en Storage: " + errorArchivos.message);
-  } else if (archivos && archivos.length) {
+  if (!errorArchivos && archivos && archivos.length) {
     const nombres = archivos.map(f => f.name);
-    const { error: errorBorrado } = await supabase.storage.from('comprobantes').remove(nombres);
-    if (errorBorrado) {
-      console.error("Error borrando archivos:", errorBorrado);
-      alert("Error borrando archivos en Storage: " + errorBorrado.message);
-    } else {
-      console.log("Archivos de Storage borrados correctamente.");
-    }
-  } else {
-    console.log("No hay archivos a borrar en Storage.");
+    await supabase.storage.from('comprobantes').remove(nombres);
   }
 
-  alert('¡Intento de reinicio completado! Revisa la consola para ver posibles errores.');
-  cargarComprobantes();
+  // 6. Limpia el panel admin (UI) y recarga comprobantes
+  document.getElementById('listaComprobantes').innerHTML = '';
+  document.getElementById('totales').textContent = '';
+  await cargarComprobantes();
+
+  alert('¡Todos los datos han sido reiniciados!');
 }
+
 
 // ----------- SORTEADOR -----------
 let sorteando = false;
