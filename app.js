@@ -423,3 +423,48 @@ async function guardarCantidadTickets() {
   await supabase.from('config').upsert([{ clave: 'tickets_visibles', valor: cant }]);
   alert("Cantidad actualizada correctamente");
 }
+document.addEventListener('keydown', function(e) {
+  // Puedes cambiar ALT + A por la combinación que prefieras
+  if (e.altKey && e.key.toLowerCase() === 'a') {
+    const adminBtn = document.getElementById('btnAdmin');
+    if (adminBtn) {
+      adminBtn.style.display = '';
+      adminBtn.focus(); // Opcional: para que sea más visible
+      // Oculta el botón de nuevo después de unos segundos, si quieres:
+      setTimeout(() => { adminBtn.style.display = 'none'; }, 10000); // 10 segundos visible
+    }
+  }
+});
+// Recomendado: pon este código dentro de window.onload para evitar errores si el DOM aún no está listo.
+window.onload = function() {
+  const mainTitle = document.getElementById('mainTitle');
+  const adminBtn = document.getElementById('btnAdmin');
+let adminTapCount = 0;
+let adminTapTimer = null;
+
+  function adminTapHandler() {
+    adminTapCount++;
+    if (adminTapCount === 5) { // Número de taps/clics secretos
+      adminBtn.style.display = '';
+      adminBtn.focus();
+      adminTapCount = 0;
+      // Oculta el botón después de 10 segundos (opcional)
+      setTimeout(() => { adminBtn.style.display = 'none'; }, 10000);
+    }
+    clearTimeout(adminTapTimer);
+    adminTapTimer = setTimeout(() => { adminTapCount = 0; }, 2000); // Si pasan 2 seg, resetea el contador
+  }
+
+  // Soporte móvil y desktop:
+  mainTitle.addEventListener('click', adminTapHandler);
+  mainTitle.addEventListener('touchend', adminTapHandler);
+
+  // OPCIONAL: También acceso por teclado ALT+A en desktop
+  document.addEventListener('keydown', function(e) {
+    if (e.altKey && e.key.toLowerCase() === 'a') {
+      adminBtn.style.display = '';
+      adminBtn.focus();
+      setTimeout(() => { adminBtn.style.display = 'none'; }, 10000);
+    }
+  });
+};
