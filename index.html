@@ -10,11 +10,12 @@
   <div id="app">
     <!-- Pantalla principal -->
     <section id="inicio">
-      <h1>🎟️ Rifa Premium</h1>
-      <button onclick="mostrarRegistro()">Registrarse</button>
+      <h1 id="mainTitle">🎟️ Rifa Premium</h1>
+      
+<button onclick="mostrarRegistro()">Registrarse</button>
       <button onclick="mostrarConsulta()">Consultar</button>
-      <button onclick="mostrarAdmin()">Admin</button>
-      <button onclick="mostrarSorteador()">Sorteador</button>
+     
+<button onclick="mostrarAdmin()" id="btnAdmin" style="display:none;">Admin</button>
     </section>
 
     <!-- Registro -->
@@ -83,9 +84,9 @@
   <label  for="cantidadTicketsMostrar">Tickets a mostrar:</label>
   <input type="number" id="cantidadTicketsMostrar" min="1" style="width: 70px; display:inline;" />
   <button onclick="guardarCantidadTickets()">Guardar</button>
+ <button onclick="mostrarSorteador()">Sorteador</button>
 </div>
-
-      <button onclick="cerrarAdmin()">Cerrar Admin</button>
+ <button onclick="cerrarAdmin()">Cerrar Admin</button>
     </section>
 
     <!-- Sorteador -->
