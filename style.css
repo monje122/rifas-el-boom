@@ -88,3 +88,10 @@ ul { list-style: none; padding: 0; }
 .comprobante-card .acciones .rechazado { color: #ffb200; font-weight: bold; }
 ::-webkit-scrollbar { width: 6px; background: #222; }
 ::-webkit-scrollbar-thumb { background: #00ffd7; border-radius: 3px; }
+#fotoInicio, .img-inicio {
+  display: block;
+  margin: 0 auto 18px auto;   /* Centra la imagen horizontalmente */
+  width: 220px;
+  border-radius: 16px;
+  box-shadow: 0 2px 16px #0008;
+}
