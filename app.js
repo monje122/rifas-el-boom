@@ -454,6 +454,7 @@ document.addEventListener('keydown', function(e) {
 });
 // Recomendado: pon este código dentro de window.onload para evitar errores si el DOM aún no está listo.
 window.onload = function() {
+   mostrarFotoInicio();
   const mainTitle = document.getElementById('mainTitle');
   const adminBtn = document.getElementById('btnAdmin');
   
