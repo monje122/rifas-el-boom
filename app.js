@@ -31,7 +31,17 @@ function validarRegistro() {
   document.getElementById('seleccion').style.display = '';
   cargarTickets();
 }
-const PRECIO_TICKET = 5;
+let PRECIO_TICKET = 5;
+
+// Función para actualizar el precio desde config
+async function actualizarPrecioTicket() {
+  const { data: confPrecio } = await supabase.from('config')
+    .select('valor')
+    .eq('clave', 'precio_ticket')
+    .maybeSingle();
+  PRECIO_TICKET = confPrecio?.valor ? parseInt(confPrecio.valor, 10) : 5;
+}
+
 
 function actualizarMonto() {
   const total = seleccionados.length * PRECIO_TICKET;
@@ -40,7 +50,8 @@ function actualizarMonto() {
 }
 
 async function cargarTickets(){
-   await liberarTicketsVencidos();
+   await actualizarPrecioTicket();
+await liberarTicketsVencidos();
  const { data: conf } = await supabase
     .from('config')
     .select('valor')
@@ -262,7 +273,8 @@ async function loginAdmin() {
 }
 
 async function cargarComprobantes() {
-  // 1. Leer la cantidad de tickets visibles de la config
+ await actualizarPrecioTicket();
+ // 1. Leer la cantidad de tickets visibles de la config
   const { data: conf } = await supabase.from('config')
     .select('valor')
     .eq('clave', 'tickets_visibles')
@@ -271,6 +283,11 @@ async function cargarComprobantes() {
   // 2. Mostrar el valor actual en el input (por defecto 100 si no hay valor)
   document.getElementById('cantidadTicketsMostrar').value = conf?.valor || 100;
 
+  const { data: confPrecio } = await supabase.from('config')
+  .select('valor')
+  .eq('clave', 'precio_ticket')
+  .maybeSingle();
+document.getElementById('nuevoPrecioTicket').value = confPrecio?.valor || 5;
   // 3. Cargar y mostrar los comprobantes como antes
   const { data, error } = await supabase
     .from('comprobantes')
@@ -302,7 +319,7 @@ async function cargarComprobantes() {
     lista.appendChild(div);
   });
   document.getElementById('totales').textContent =
-    `Tickets vendidos: ${totalTickets} | Monto recaudado: $${totalMonto}`;
+    `Tickets vendidos: ${totalTickets} | Monto recaudado: ${totalMonto} Bs`;
 }
 
 window.aprobarComprobante = async function(id) {
@@ -439,6 +456,7 @@ document.addEventListener('keydown', function(e) {
 window.onload = function() {
   const mainTitle = document.getElementById('mainTitle');
   const adminBtn = document.getElementById('btnAdmin');
+  
 let adminTapCount = 0;
 let adminTapTimer = null;
 
@@ -468,3 +486,55 @@ let adminTapTimer = null;
     }
   });
 };
+async function guardarPrecioTicket() {
+  const precio = parseInt(document.getElementById('nuevoPrecioTicket').value, 10) || 5;
+  await supabase.from('config').upsert([{ clave: 'precio_ticket', valor: precio }]);
+  alert("¡Precio actualizado correctamente!");
+  // Recarga comprobantes y totales con el nuevo precio
+  await cargarComprobantes();
+}
+// Subir la foto desde el panel admin
+async function subirFotoInicio() {
+  const fileInput = document.getElementById('fotoInicioInput');
+  const file = fileInput.files[0];
+  if (!file) {
+    alert('Selecciona una imagen primero');
+    return;
+  }
+
+  // Nombre único
+  const nombreArchivo = `inicio_${Date.now()}.${file.name.split('.').pop()}`;
+  const { data, error } = await supabase.storage
+    .from('imagenes-inicio')
+    .upload(nombreArchivo, file, { upsert: true });
+
+  if (error) {
+    alert("Error subiendo imagen: " + error.message);
+    return;
+  }
+
+  // Obtener URL pública
+  const { data: urlData } = supabase.storage.from('imagenes-inicio').getPublicUrl(nombreArchivo);
+  const url = urlData.publicUrl;
+
+  // Guardar la URL en config
+  await supabase.from('config').upsert([{ clave: 'foto-inicio', valore: url }]); 
+  alert('Foto de inicio actualizada');
+  fileInput.value = '';
+  mostrarFotoInicio(); // Refresca la imagen en pantalla
+}
+
+// Mostrar la foto en el inicio
+async function mostrarFotoInicio() {
+  const { data: conf } = await supabase.from('config')
+    .select('valore')
+    .eq('clave', 'foto-inicio')
+    .maybeSingle();
+  const fotoInicio = document.getElementById('fotoInicio');
+  if (conf?.valore) {
+    fotoInicio.src = conf.valore;
+    fotoInicio.style.display = '';
+  } else {
+    fotoInicio.style.display = 'none';
+  }
+}
