@@ -527,7 +527,6 @@ async function subirFotoInicio() {
 
 // Mostrar la foto en el inicio
 async function mostrarFotoInicio() {
-  const DEFAULT_IMG = "https://i.postimg.cc/5yMGc6LX/e6a9f7af-3780-4bcd-b8f8-ec34ea0c9e4c.png";
   const { data: conf } = await supabase.from('config')
     .select('valor')
     .eq('clave', 'foto-inicio')
@@ -537,10 +536,11 @@ async function mostrarFotoInicio() {
     fotoInicio.src = conf.valor;
     fotoInicio.style.display = '';
   } else {
-    fotoInicio.src = DEFAULT_IMG;   // Siempre se muestra el respaldo
-    fotoInicio.style.display = '';
+    fotoInicio.src = "";           // No muestra nada
+    fotoInicio.style.display = 'none'; // Opcional: oculta el elemento si no hay imagen
   }
 }
+
 
 async function borrarFotoInicio() {
   if (!confirm('¿Seguro que quieres borrar la foto de inicio?')) return;
