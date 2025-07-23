@@ -538,3 +538,37 @@ async function mostrarFotoInicio() {
     fotoInicio.style.display = 'none';
   }
 }
+async function borrarFotoInicio() {
+  if (!confirm('¿Seguro que quieres borrar la foto de inicio?')) return;
+
+  // Obtén la URL de la foto desde config
+  const { data: conf } = await supabase.from('config')
+    .select('valore')
+    .eq('clave', 'foto-inicio')
+    .maybeSingle();
+
+  if (conf?.valore) {
+    // Extrae el nombre del archivo desde la URL
+    // Ejemplo de URL: https://.../imagenes-inicio/inicio_1753291802562.png
+    const partes = conf.valore.split('/');
+    const nombreArchivo = partes[partes.length - 1];
+
+    // Borra el archivo del bucket
+    console.log("Intentando borrar archivo:", nombreArchivo);
+    const { error: delError } = await supabase.storage
+      .from('imagenes-inicio')
+      .remove([nombreArchivo]);
+    if (delError) {
+      alert('Error borrando la imagen: ' + delError.message);
+      return;
+    }
+  }
+
+  // Borra la URL de la tabla config
+  await supabase.from('config')
+    .update({ valore: null })
+    .eq('clave', 'foto-inicio');
+
+  alert('Foto de inicio borrada');
+  mostrarFotoInicio(); // Para refrescar la vista
+}
