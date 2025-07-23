@@ -518,7 +518,7 @@ async function subirFotoInicio() {
   const url = urlData.publicUrl;
 
   // Guardar la URL en config
-  await supabase.from('config').upsert([{ clave: 'foto-inicio', valore: url }]); 
+  await supabase.from('config').upsert([{ clave: 'foto-inicio', valor: url }]); 
   alert('Foto de inicio actualizada');
   fileInput.value = '';
   mostrarFotoInicio(); // Refresca la imagen en pantalla
@@ -526,31 +526,34 @@ async function subirFotoInicio() {
 
 // Mostrar la foto en el inicio
 async function mostrarFotoInicio() {
+  const DEFAULT_IMG = "https://i.postimg.cc/5yMGc6LX/e6a9f7af-3780-4bcd-b8f8-ec34ea0c9e4c.png";
   const { data: conf } = await supabase.from('config')
-    .select('valore')
+    .select('valor')
     .eq('clave', 'foto-inicio')
     .maybeSingle();
   const fotoInicio = document.getElementById('fotoInicio');
-  if (conf?.valore) {
-    fotoInicio.src = conf.valore;
+  if (conf?.valor) {
+    fotoInicio.src = conf.valor;
     fotoInicio.style.display = '';
   } else {
-    fotoInicio.style.display = 'none';
+    fotoInicio.src = DEFAULT_IMG;   // Siempre se muestra el respaldo
+    fotoInicio.style.display = '';
   }
 }
+
 async function borrarFotoInicio() {
   if (!confirm('¿Seguro que quieres borrar la foto de inicio?')) return;
 
   // Obtén la URL de la foto desde config
   const { data: conf } = await supabase.from('config')
-    .select('valore')
+    .select('valor')
     .eq('clave', 'foto-inicio')
     .maybeSingle();
 
-  if (conf?.valore) {
+  if (conf?.valor) {
     // Extrae el nombre del archivo desde la URL
     // Ejemplo de URL: https://.../imagenes-inicio/inicio_1753291802562.png
-    const partes = conf.valore.split('/');
+    const partes = conf.valor.split('/');
     const nombreArchivo = partes[partes.length - 1];
 
     // Borra el archivo del bucket
@@ -566,7 +569,7 @@ async function borrarFotoInicio() {
 
   // Borra la URL de la tabla config
   await supabase.from('config')
-    .update({ valore: null })
+    .update({ valor: null })
     .eq('clave', 'foto-inicio');
 
   alert('Foto de inicio borrada');
