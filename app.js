@@ -63,7 +63,7 @@ function actualizarMonto() {
 
 async function cargarTickets(){
    await actualizarPrecioTicket();
-await liberarTicketsVencidos();
+
  const { data: conf } = await supabase
     .from('config')
     .select('valor')
@@ -122,20 +122,6 @@ await liberarTicketsVencidos();
     grid.innerHTML = '<div style="color:#ff4343;">No hay tickets disponibles.</div>';
   }
 }
-async function liberarTicketsVencidos() {
-  const hace7min = new Date(Date.now() - 7 * 60 * 1000).toISOString();
-  // Libera los tickets reservados hace más de 7 minutos y que siguen no disponibles
-  const { data, error } = await supabase
-    .from('tickets')
-    .update({ disponible: true, reservado_por: null, reservado_en: null })
-    .lt('reservado_en', hace7min)
-    .eq('disponible', false);
-
-  if (error) {
-    console.error("Error liberando tickets vencidos:", error);
-  }
-}
-
 
 async function confirmarTickets() {
   if (seleccionados.length < 2) {
