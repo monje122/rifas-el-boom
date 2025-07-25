@@ -241,18 +241,45 @@ const url = data.publicUrl;
 // ----------- CONSULTA DE TICKETS -----------
 async function consultarTickets() {
   const ced = document.getElementById('consultaCedula').value.trim();
-  const { data: usuario } = await supabase.from('usuarios').select('id,nombre').eq('cedula', ced).maybeSingle();
   const ul = document.getElementById('resultadosConsulta');
   ul.innerHTML = '';
-  if (!usuario) { ul.innerHTML = "<li>No encontrado</li>"; return; }
-  // Buscar tickets reservados
-  const { data: tks } = await supabase.from('tickets').select('numero').eq('reservado_por', usuario.id);
-  (tks || []).forEach(tk => {
+
+  // 1. Busca usuario por cédula
+  const { data: usuario } = await supabase
+    .from('usuarios')
+    .select('id,nombre')
+    .eq('cedula', ced)
+    .maybeSingle();
+
+  if (!usuario) {
+    ul.innerHTML = "<li>No encontrado</li>";
+    return;
+  }
+
+  // 2. Busca comprobantes de ese usuario
+  const { data: comprobantes } = await supabase
+    .from('comprobantes')
+    .select('tickets, aprobado, rechazado, created_at')
+    .eq('usuario_id', usuario.id)
+    .order('created_at', { ascending: false });
+
+  if (!comprobantes || comprobantes.length === 0) {
+    ul.innerHTML = "<li>No tienes comprobantes aún</li>";
+    return;
+  }
+
+  // 3. Mostrar por comprobante
+  comprobantes.forEach((comp, idx) => {
     const li = document.createElement('li');
-    li.textContent = tk.numero;
+    if (comp.aprobado) {
+      li.innerHTML = `<span style="color:#00ff66;font-weight:bold;">Aprobado:</span> Tickets: <b>${comp.tickets.join(', ')}</b>`;
+    } else if (comp.rechazado) {
+      li.innerHTML = `<span style="color:#ffb200;font-weight:bold;">Comprobante rechazado</span>`;
+    } else {
+      li.innerHTML = `<span style="color:#ff4343;font-weight:bold;">Pendiente de aprobación</span>`;
+    }
     ul.appendChild(li);
   });
-  if (!tks.length) ul.innerHTML = "<li>Sin tickets asignados</li>";
 }
 
 // ----------- ADMIN -----------
@@ -575,4 +602,72 @@ async function borrarFotoInicio() {
 
   alert('Foto de inicio borrada');
   mostrarFotoInicio(); // Para refrescar la vista
+}
+async function cambiarClaveAdmin() {
+  const claveActual = document.getElementById('adminClaveActual').value.trim();
+  const claveNueva = document.getElementById('adminClaveNueva').value.trim();
+  const claveNueva2 = document.getElementById('adminClaveNueva2').value.trim();
+
+  if (!claveActual || !claveNueva || !claveNueva2) {
+    alert('Completa todos los campos');
+    return;
+  }
+  if (claveNueva.length < 5) {
+    alert('La nueva clave debe tener al menos 5 caracteres');
+    return;
+  }
+  if (claveNueva !== claveNueva2) {
+    alert('Las nuevas claves no coinciden');
+    return;
+  }
+
+  // Busca el admin logueado (puedes guardar el correo en variable global al loguear)
+  const correo = document.getElementById('adminCorreo')?.value || localStorage.getItem("adminCorreo");
+  if (!correo) {
+    alert('No se puede determinar el usuario admin actual');
+    return;
+  }
+
+  // Verifica clave actual
+  const { data: admin, error } = await supabase
+    .from('admins')
+    .select('*')
+    .eq('correo', correo)
+    .maybeSingle();
+  if (!admin || admin.clave_hash !== claveActual) {
+    alert('Clave actual incorrecta');
+    return;
+  }
+
+  // Actualiza la clave (en demo: almacena directo, en producción: guarda hash)
+  const { error: updError } = await supabase
+    .from('admins')
+    .update({ clave_hash: claveNueva })
+    .eq('correo', correo);
+
+  if (updError) {
+    alert('Error cambiando clave: ' + updError.message);
+    return;
+  }
+
+  alert('¡Clave de admin cambiada!');
+  // Limpia los campos
+  document.getElementById('adminClaveActual').value = '';
+  document.getElementById('adminClaveNueva').value = '';
+  document.getElementById('adminClaveNueva2').value = '';
+}
+function toggleCambioClave() {
+  const div = document.getElementById('divCambioClave');
+  const btn = document.getElementById('btnMostrarClave');
+  if (div.style.display === 'none') {
+    div.style.display = '';
+    btn.textContent = 'Ocultar cambio de clave';
+  } else {
+    div.style.display = 'none';
+    btn.textContent = 'Cambiar clave admin';
+    // Limpia los campos cuando se oculta
+    document.getElementById('adminClaveActual').value = '';
+    document.getElementById('adminClaveNueva').value = '';
+    document.getElementById('adminClaveNueva2').value = '';
+  }
 }
