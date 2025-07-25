@@ -79,9 +79,16 @@
     </section>
 
     <section id="adminPanel" style="display:none;">
-      <h2>Comprobantes</h2>
-      <div id="listaComprobantes"></div>
-      <p id="totales"></p>
+     <button id="btnMostrarClave" onclick="toggleCambioClave()" style="margin-bottom:10px;">Cambiar clave admin</button>
+<div id="divCambioClave" style="margin-bottom:15px; display:none;">
+  <h3>Cambiar clave de admin</h3>
+  <input type="password" id="adminClaveActual" placeholder="Clave actual" />
+  <input type="password" id="adminClaveNueva" placeholder="Nueva clave" />
+  <input type="password" id="adminClaveNueva2" placeholder="Repetir nueva clave" />
+  <button onclick="cambiarClaveAdmin()">Cambiar Clave</button>
+  <button onclick="toggleCambioClave()" style="margin-left:10px;">Cancelar</button>
+</div>
+
       <div style="margin-bottom:15px;">
   <label for="fotoInicioInput">Cambiar foto de inicio:</label>
   <input type="file" id="fotoInicioInput" accept="image/*" />
@@ -102,6 +109,9 @@
   <button onclick="guardarCantidadTickets()">Guardar</button>
  <button onclick="mostrarSorteador()">Sorteador</button>
 </div>
+      <p id="totales"></p>
+      <h2>Comprobantes</h2>
+      <div id="listaComprobantes"></div>
  <button onclick="cerrarAdmin()">Cerrar Admin</button>
     </section>
 
