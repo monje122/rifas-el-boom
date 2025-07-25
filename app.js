@@ -2,12 +2,20 @@ const supabaseUrl = "https://jnxggqxrijycuycqyzeo.supabase.co";
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpueGdncXhyaWp5Y3V5Y3F5emVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI3ODQwNzMsImV4cCI6MjA2ODM2MDA3M30.8e09092NNb2a5fBF-D4lDELlOcaObdkhxaaKyyKUNdg";
 const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
+let intervaloContadorTickets = null;
 
 // ----------- NAVEGACIÓN BÁSICA -----------
 function ocultarTodo() {
   ['inicio', 'registro', 'seleccion', 'pago', 'consulta',
    'adminLogin', 'adminPanel', 'sorteador'
   ].forEach(id => document.getElementById(id).style.display = 'none');
+ if (intervaloContadorTickets) {
+    clearInterval(intervaloContadorTickets);
+
+  intervaloContadorTickets = null;
+  }  // <-- Aquí CIERRAS el if
+
+
 }
 function mostrarRegistro()  { ocultarTodo(); document.getElementById('registro').style.display = ''; }
 function mostrarConsulta()  { ocultarTodo(); document.getElementById('consulta').style.display = ''; }
@@ -30,6 +38,10 @@ function validarRegistro() {
   ocultarTodo();
   document.getElementById('seleccion').style.display = '';
   cargarTickets();
+  
+    // Inicia el contador en vivo
+  if (intervaloContadorTickets) clearInterval(intervaloContadorTickets);
+  intervaloContadorTickets = setInterval(actualizarContadorTickets, 5000)
 }
 let PRECIO_TICKET = 5;
 
@@ -669,5 +681,23 @@ function toggleCambioClave() {
     document.getElementById('adminClaveActual').value = '';
     document.getElementById('adminClaveNueva').value = '';
     document.getElementById('adminClaveNueva2').value = '';
+  }
+}
+async function actualizarContadorTickets() {
+  // Total de tickets
+  const { count: totalTickets } = await supabase
+    .from('tickets')
+    .select('*', { count: 'exact', head: true });
+
+  // Tickets disponibles actualmente
+  const { count: disponibles } = await supabase
+    .from('tickets')
+    .select('*', { count: 'exact', head: true })
+    .eq('disponible', true);
+
+  // Actualiza el contador en pantalla (solo si el elemento existe)
+  const el = document.getElementById('ticketContador');
+  if (el) {
+    el.textContent = `${disponibles} de ${totalTickets} disponibles`;
   }
 }
