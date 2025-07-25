@@ -63,7 +63,7 @@ function actualizarMonto() {
 
 async function cargarTickets(){
    await actualizarPrecioTicket();
-
+  await liberarTicketsVencidos();
  const { data: conf } = await supabase
     .from('config')
     .select('valor')
@@ -120,6 +120,46 @@ async function cargarTickets(){
   });
   if (!data || data.length === 0) {
     grid.innerHTML = '<div style="color:#ff4343;">No hay tickets disponibles.</div>';
+  }
+}
+async function liberarTicketsVencidos() {
+  // Tiempo límite de reserva (por ejemplo, 7 minutos)
+  const hace7min = new Date(Date.now() - 7 * 60 * 1000).toISOString();
+
+  // 1. Busca todos los tickets reservados hace más de 7 minutos
+  const { data: ticketsVencidos, error: errorTickets } = await supabase
+    .from('tickets')
+    .select('numero, reservado_por, reservado_en')
+    .eq('disponible', false)
+    .lt('reservado_en', hace7min);
+
+  if (errorTickets) {
+    console.error("Error buscando tickets vencidos:", errorTickets);
+    return;
+  }
+
+  if (!ticketsVencidos || ticketsVencidos.length === 0) return;
+
+  // 2. Por cada usuario, verifica si subió comprobante para ese ticket
+  for (let ticket of ticketsVencidos) {
+    // Busca si hay comprobante pendiente (no rechazado) del usuario para ese ticket
+    const { data: comprobante } = await supabase
+      .from('comprobantes')
+      .select('*')
+      .eq('usuario_id', ticket.reservado_por)
+      .contains('tickets', [ticket.numero])
+      .in('aprobado', [false])
+      .in('rechazado', [false])
+      .maybeSingle();
+
+    // Si NO hay comprobante, libera el ticket
+    if (!comprobante) {
+      await supabase
+        .from('tickets')
+        .update({ disponible: true, reservado_por: null, reservado_en: null })
+        .eq('numero', ticket.numero);
+    }
+    // Si hay comprobante pendiente (o aprobado), NO lo liberes
   }
 }
 
