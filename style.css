@@ -95,3 +95,17 @@ ul { list-style: none; padding: 0; }
   border-radius: 16px;
   box-shadow: 0 2px 16px #0008;
 }
+#btnWhatsappAdmin {
+  display: inline-flex;
+  align-items: center;
+  background-color: #25D366;
+  border-radius: 10px;
+  padding: 7px 16px;
+  text-decoration: none;
+  font-weight: bold;
+  margin-top: 16px;
+  transition: background 0.2s;
+}
+#btnWhatsappAdmin:hover {
+  background-color: #1ebe57;
+}
