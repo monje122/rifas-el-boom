@@ -22,14 +22,20 @@
      
 <button onclick="mostrarAdmin()" id="btnAdmin" style="display:none;">Admin</button>
 
-      <a href="https://wa.me/584121890444" target="_blank" id="btnWhatsappAdmin">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg"
-       alt="WhatsApp"
-       style="width:40px; vertical-align:middle; margin-right:12px;">
-  <span style="font-size: 1.1em; vertical-align:middle; color: #fff;">
-    soporte
-  </span>
-</a>
+<div id="botonesSociales">
+  <!-- Botón de Grupo WhatsApp -->
+  <button id="btnWhatsappGrupo" onclick="window.open('https://chat.whatsapp.com/DXCJrKGdiasDcHxRbjJDpb?mode=ac_t', '_blank')">
+    <img src="https://img.icons8.com/ios-filled/24/ffffff/whatsapp.png" style="vertical-align: middle;" />
+    Grupo WhatsApp
+  </button>
+
+  <!-- Botón de soporte (abre chat con número) -->
+  <button id="btnSoporte" onclick="window.open('https://wa.me/584121890444', '_blank')">
+    <img src="https://img.icons8.com/ios-filled/24/ffffff/whatsapp.png" style="vertical-align: middle;" />
+    Soporte
+  </button>
+</div>
+
     </section>
 
     <!-- Registro -->
@@ -63,6 +69,9 @@
   <p>Banco: Banesco(0134)</p>
   <p>Teléfono:0412-1890444</p>
   <p>Cédula: 5912747</p>
+      <label>Últimos 4 números de la referencia:</label>
+<input type="text" id="referencia" maxlength="4" pattern="\d{4}" placeholder="Ej: 1234">
+
   <input type="file" id="comprobante" />
   <button onclick="subirComprobante()">Enviar</button>
   <button class="btn-inicio" onclick="irInicio()">Inicio</button>
