@@ -123,10 +123,9 @@ async function cargarTickets(){
   }
 }
 async function liberarTicketsVencidos() {
-  // Tiempo límite de reserva (por ejemplo, 7 minutos)
   const hace7min = new Date(Date.now() - 7 * 60 * 1000).toISOString();
 
-  // 1. Busca todos los tickets reservados hace más de 7 minutos
+  // 1. Buscar tickets vencidos (reservados hace más de 7 minutos)
   const { data: ticketsVencidos, error: errorTickets } = await supabase
     .from('tickets')
     .select('numero, reservado_por, reservado_en')
@@ -140,29 +139,33 @@ async function liberarTicketsVencidos() {
 
   if (!ticketsVencidos || ticketsVencidos.length === 0) return;
 
-  // 2. Por cada usuario, verifica si subió comprobante para ese ticket
+  // 2. Verifica si hay comprobantes válidos (aprobados o pendientes) por ticket
   for (let ticket of ticketsVencidos) {
-    // Busca si hay comprobante pendiente (no rechazado) del usuario para ese ticket
-    const { data: comprobante } = await supabase
+    const { data: comprobante, error: errorComp } = await supabase
       .from('comprobantes')
-      .select('*')
+      .select('id, aprobado, rechazado, tickets')
       .eq('usuario_id', ticket.reservado_por)
       .contains('tickets', [ticket.numero])
-      .in('aprobado', [false])
-      .in('rechazado', [false])
       .maybeSingle();
 
-    // Si NO hay comprobante, libera el ticket
-    if (!comprobante) {
+    if (errorComp) {
+      console.error("Error verificando comprobante para ticket", ticket.numero, errorComp);
+      continue;
+    }
+
+    // ⚠️ SOLO liberar si NO hay comprobante, o si está rechazado explícitamente
+    if (!comprobante || comprobante.rechazado === true) {
       await supabase
         .from('tickets')
         .update({ disponible: true, reservado_por: null, reservado_en: null })
         .eq('numero', ticket.numero);
+
+      console.log(`🎫 Ticket ${ticket.numero} liberado automáticamente.`);
+    } else {
+      console.log(`⛔ Ticket ${ticket.numero} NO se libera (comprobante válido detectado).`);
     }
-    // Si hay comprobante pendiente (o aprobado), NO lo liberes
   }
 }
-
 async function confirmarTickets() {
   if (seleccionados.length < 2) {
     alert('Debes seleccionar al menos 2 tickets');
