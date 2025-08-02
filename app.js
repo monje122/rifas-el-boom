@@ -123,7 +123,7 @@ async function cargarTickets(){
   }
 }
 async function liberarTicketsVencidos() {
-  const hace7min = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+  const hace7min = new Date(Date.now() - 7 * 60 * 1000).toISOString();
 
   // 1. Buscar tickets vencidos (reservados hace más de 7 minutos)
   const { data: ticketsVencidos, error: errorTickets } = await supabase
@@ -166,6 +166,7 @@ async function liberarTicketsVencidos() {
     }
   }
 }
+
 async function confirmarTickets() {
   if (seleccionados.length < 2) {
     alert('Debes seleccionar al menos 2 tickets');
@@ -232,10 +233,20 @@ async function confirmarTickets() {
 async function subirComprobante() {
   const fileInput = document.getElementById('comprobante');
   const file = fileInput.files[0];
-  if (!file) {
-    alert('Debes subir el comprobante');
+  const referencia = document.getElementById('referencia').value.trim();
+
+  // 🧠 Validar referencia primero
+  if (!/^\d{4}$/.test(referencia)) {
+    alert('Ingresa los últimos 4 números de la referencia (exactamente 4 dígitos numéricos)');
     return;
   }
+
+  // 🧠 Validar archivo comprobante
+  if (!file) {
+    alert('Debes subir el comprobante de pago');
+    return;
+  }
+
 
   // 1. Subir archivo a storage
   const nombreArchivo = `${usuarioActual.cedula}_${Date.now()}.${file.name.split('.').pop()}`;
@@ -263,6 +274,7 @@ const url = data.publicUrl;
     usuario_id: usuarioActual.id,
     tickets: seleccionados,
     archivo_url: url,
+    referencia: referencia,
     aprobado: false,
     rechazado: false
   });
@@ -388,6 +400,7 @@ document.getElementById('nuevoPrecioTicket').value = confPrecio?.valor || 5;
   });
   document.getElementById('totales').textContent =
     `Tickets vendidos: ${totalTickets} | Monto recaudado: ${totalMonto} Bs`;
+  await borrarSiHay20Aprobados();
 }
 
 window.aprobarComprobante = async function(id) {
@@ -458,6 +471,8 @@ window.reiniciarTodo = async function() {
   await cargarComprobantes();
 
   alert('¡Todos los datos han sido reiniciados!');
+  
+
 }
 
 
@@ -729,4 +744,50 @@ async function actualizarContadorTickets() {
   if (el) {
     el.textContent = `${disponibles} de ${totalTickets} disponibles`;
   }
+}
+async function borrarSiHay20Aprobados() {
+  const { data: aprobados, error } = await supabase
+    .from('comprobantes')
+    .select('id, archivo_url')
+    .eq('aprobado', true);
+
+  if (error || !aprobados) return;
+
+  if (aprobados.length < 10) return; // solo ejecuta si hay 20 o más
+
+  // 1. Extrae nombres de archivo desde las URLs
+  const archivosABorrar = aprobados
+    .map(c => {
+      try {
+        const url = new URL(c.archivo_url);
+        const partes = url.pathname.split('/');
+        return partes[partes.length - 1];
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+
+  if (archivosABorrar.length === 0) return;
+
+  // 2. Borra archivos del bucket
+  const { error: errorBorrado } = await supabase
+    .storage
+    .from('comprobantes')
+    .remove(archivosABorrar);
+
+  if (errorBorrado) {
+    console.error("❌ Error borrando archivos del bucket:", errorBorrado);
+    return;
+  }
+
+  // 3. Limpia las URLs en la BD
+  for (let c of aprobados) {
+    await supabase
+      .from('comprobantes')
+      .update({ archivo_url: null })
+      .eq('id', c.id);
+  }
+
+  console.log(`🗑️ Borrados ${archivosABorrar.length} archivos de comprobantes aprobados.`);
 }
