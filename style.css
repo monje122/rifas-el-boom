@@ -95,17 +95,43 @@ ul { list-style: none; padding: 0; }
   border-radius: 16px;
   box-shadow: 0 2px 16px #0008;
 }
-#btnWhatsappAdmin {
-  display: inline-flex;
-  align-items: center;
-  background-color: #25D366;
-  border-radius: 10px;
-  padding: 7px 16px;
-  text-decoration: none;
-  font-weight: bold;
-  margin-top: 16px;
-  transition: background 0.2s;
+#botonesSociales {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: nowrap; /* ⚠️ ← Esto impide que se apilen en móviles */
 }
-#btnWhatsappAdmin:hover {
-  background-color: #1ebe57;
+
+#botonesSociales button {
+  padding: 10px 10px;
+  font-size: 15px;
+  font-weight: bold;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  width: 180px;     /* 🔽 ancho fijo opcional */
+}
+
+
+/* Botón de Grupo WhatsApp */
+#btnWhatsappGrupo {
+  background-color: #06402B;
+}
+#btnWhatsappGrupo:hover {
+  background-color: #064B;
+}
+
+/* Botón de soporte */
+#btnSoporte {
+  background-color: #25D366;
+}
+#btnSoporte:hover {
+  background-color: #1ebf59;
 }
