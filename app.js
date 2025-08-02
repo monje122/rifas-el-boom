@@ -386,6 +386,7 @@ document.getElementById('nuevoPrecioTicket').value = confPrecio?.valor || 5;
       <b>${c.usuarios?.nombre || ''}</b> (${c.usuarios?.cedula || ''})<br>
       Tel: ${c.usuarios?.telefono || ''}<br>
       Tickets: ${c.tickets.join(', ')}<br>
+       Referencia: <b>${c.referencia || '—'}</b><br>
       <a href="${c.archivo_url}" target="_blank">Ver comprobante</a><br>
       <span class="acciones">
         <span class="${c.aprobado ? 'aprobado' : (c.rechazado ? 'rechazado' : 'pendiente')}">
