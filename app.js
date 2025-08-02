@@ -123,7 +123,7 @@ async function cargarTickets(){
   }
 }
 async function liberarTicketsVencidos() {
-  const hace7min = new Date(Date.now() - 7 * 60 * 1000).toISOString();
+  const hace7min = new Date(Date.now() - 3 * 60 * 1000).toISOString();
 
   // 1. Buscar tickets vencidos (reservados hace más de 7 minutos)
   const { data: ticketsVencidos, error: errorTickets } = await supabase
