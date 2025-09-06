@@ -340,12 +340,48 @@ window.rechazarComprobante = async function(id){
 
 /* eliminar: borra comprobante; como los tickets sólo se asignan al aprobar, aquí no hay que liberar */
 window.eliminarComprobante = async function(id){
-  try{
-    await supabase.from('comprobantes').delete().eq('id', id);
-    alert('Comprobante eliminado');
-  }catch(e){
-    alert('Error al eliminar: ' + (e.message||e));
-  }finally{
+  if (!confirm('¿Eliminar este comprobante? Si estaba aprobado, liberarás sus tickets.')) return;
+
+  try {
+    // 1) Traer el comprobante (para conocer sus tickets y el archivo)
+    const { data: comp, error: e1 } = await supabase
+      .from('comprobantes')
+      .select('id, aprobado, tickets, archivo_url')
+      .eq('id', id)
+      .maybeSingle();
+    if (e1) throw e1;
+
+    // 2) Si estaba aprobado y tiene tickets, liberarlos
+    if (comp?.aprobado && Array.isArray(comp.tickets) && comp.tickets.length){
+      const numeros = comp.tickets.filter(n => n != null);
+      const { error: e2 } = await supabase
+        .from('tickets')
+        .update({
+          disponible: true,
+          vendido: false,
+          reservado_por: null,
+          reservado_en: null,
+          // comprobante_id: null,  // si usas esta columna
+        })
+        .in('numero', numeros);
+      if (e2) throw e2;
+    }
+
+    // 3) (Opcional) borrar el archivo del bucket 'comprobantes'
+    if (comp?.archivo_url){
+      const partes = comp.archivo_url.split('/');
+      const nombre = partes[partes.length - 1];
+      await supabase.storage.from('comprobantes').remove([nombre]);
+    }
+
+    // 4) Borrar el comprobante
+    const { error: e3 } = await supabase.from('comprobantes').delete().eq('id', id);
+    if (e3) throw e3;
+
+    alert('✅ Comprobante eliminado. Tickets liberados (si aplicaba).');
+  } catch (e) {
+    alert('❌ Error al eliminar: ' + (e.message || e));
+  } finally {
     await cargarComprobantes();
   }
 };
