@@ -704,3 +704,54 @@ window.addEventListener('load', () => {
   // Desktop (click) – opcional, por si lo pruebas en PC
   logo.addEventListener('click', () => countTap());
 });
+// Prefill del correo desde el login guardado
+function toggleCambioClave(){
+  const box = document.getElementById('cambioClaveBox');
+  const btn = document.getElementById('btnMostrarCambioClave');
+  if (!box) return;
+
+  box.classList.toggle('hidden');
+  if (btn) btn.textContent = box.classList.contains('hidden') ? '🔐 Cambiar contraseña' : '🔐 Ocultar cambio de contraseña';
+
+  // Prefill del correo con el que inició sesión
+  const c = localStorage.getItem('adminCorreo');
+  const inp = document.getElementById('adminCorreoCambio');
+  if (c && inp) inp.value = c;
+
+  if (!box.classList.contains('hidden')) {
+    // foco al primer campo
+    setTimeout(()=> document.getElementById('adminPassActual2')?.focus(), 50);
+  }
+}
+
+window.adminCambiarClaveTabla = async function () {
+  const correo = (document.getElementById('adminCorreoCambio').value || '').trim();
+  const actual = document.getElementById('adminPassActual2').value;
+  const nueva  = document.getElementById('adminPassNueva2').value;
+  const rep    = document.getElementById('adminPassRepite2').value;
+
+  if (!correo || !actual || !nueva || !rep) { alert('Completa todos los campos'); return; }
+  if (nueva.length < 8) { alert('La nueva contraseña debe tener al menos 8 caracteres'); return; }
+  if (nueva !== rep) { alert('La nueva contraseña no coincide'); return; }
+
+  // Buscar admin
+  const { data: admin, error } = await supabase
+    .from('admins').select('id, clave_hash').eq('correo', correo).maybeSingle();
+
+  if (error || !admin) { alert('Admin no encontrado'); return; }
+  if (admin.clave_hash !== actual) { alert('Contraseña actual incorrecta'); return; }
+
+  // Actualizar contraseña (igual que tu login: texto plano en clave_hash)
+  const { error: updErr } = await supabase
+    .from('admins')
+    .update({ clave_hash: nueva })
+    .eq('id', admin.id);
+
+  if (updErr) { alert('No se pudo cambiar la contraseña: ' + updErr.message); return; }
+
+  alert('✅ Contraseña actualizada');
+  document.getElementById('adminPassActual2').value = '';
+  document.getElementById('adminPassNueva2').value  = '';
+  document.getElementById('adminPassRepite2').value = '';
+  toggleCambioClave(); // ocultar al terminar
+};
