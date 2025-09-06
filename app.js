@@ -602,7 +602,7 @@ async function mostrarTitulo() {
     inputAdmin.value = conf?.valor || '';
   }
 }
-
+window.addEventListener('load', mostrarTitulo);
 async function guardarTitulo() {
   const nuevo = document.getElementById('nuevoTitulo').value.trim();
   await supabase.from('config')
