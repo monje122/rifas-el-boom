@@ -1,794 +1,688 @@
-const supabaseUrl = "https://jnxggqxrijycuycqyzeo.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpueGdncXhyaWp5Y3V5Y3F5emVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI3ODQwNzMsImV4cCI6MjA2ODM2MDA3M30.8e09092NNb2a5fBF-D4lDELlOcaObdkhxaaKyyKUNdg";
+
+
+/* ========= SUPABASE ========= */
+const supabaseUrl = "https://rrudrhkuguuyxwzjuuuo.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJydWRyaGt1Z3V1eXh3emp1dXVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcxMTA1MjYsImV4cCI6MjA3MjY4NjUyNn0.CQOZXAvIaBwFgwo3ip3kfJEE2DhuMo-mohwrkqZ3GX4";
 const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-let intervaloContadorTickets = null;
+/* ========= ESTADO GLOBAL ========= */
+let PRECIO_TICKET = 5;
+let cantidadElegida = 2;
+let usuarioActual = null;      // { id, nombre, telefono, cedula, email }
+let adminAutenticado = false;
 
-// ----------- NAVEGACIÓN BÁSICA -----------
-function ocultarTodo() {
-  ['inicio', 'registro', 'seleccion', 'pago', 'consulta',
-   'adminLogin', 'adminPanel', 'sorteador'
-  ].forEach(id => document.getElementById(id).style.display = 'none');
- if (intervaloContadorTickets) {
-    clearInterval(intervaloContadorTickets);
+/* ========= UTILIDADES ========= */
+const $ = (id) => document.getElementById(id);
+const fmtBs = (n) => `Bs. ${Number(n || 0).toLocaleString('es-VE')}`;
 
-  intervaloContadorTickets = null;
-  }  // <-- Aquí CIERRAS el if
-
-
+function esc(str){
+  return String(str ?? '').replace(/[&<>"']/g, s => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[s]));
 }
-function mostrarRegistro()  { ocultarTodo(); document.getElementById('registro').style.display = ''; }
-function mostrarConsulta()  { ocultarTodo(); document.getElementById('consulta').style.display = ''; }
-function mostrarAdmin()     { ocultarTodo(); document.getElementById('adminLogin').style.display = ''; }
-function mostrarSorteador() { ocultarTodo(); document.getElementById('sorteador').style.display = ''; }
-function cerrarAdmin()      { ocultarTodo(); document.getElementById('inicio').style.display = ''; }
 
-// ----------- REGISTRO Y TICKETS -----------
-let usuarioActual = null, seleccionados = [];
+/* ========= NAVEGACIÓN ========= */
+function ocultarTodo(){
+  [
+    'inicio','registro','pago','consulta',
+    'adminLogin','adminPanel','sorteador'
+  ].forEach(id => { const el = $(id); if (el) el.style.display = 'none'; });
+}
 
-function validarRegistro() {
-  const cedula = document.getElementById('cedula').value.trim();
-  const nombre = document.getElementById('nombre').value.trim();
-  const telefono = document.getElementById('telefono').value.trim();
-  if (!cedula || !nombre || !telefono) {
+function irInicio(){
+  ocultarTodo();
+  $('inicio').style.display = '';
+}
+
+function mostrarRegistro(){
+  ocultarTodo();
+  $('registro').style.display = '';
+}
+
+function mostrarConsulta(){
+  ocultarTodo();
+  $('consulta').style.display = '';
+}
+
+function mostrarAdmin(){
+  ocultarTodo();
+  $('adminLogin').style.display = '';
+}
+
+function mostrarSorteador(){
+  ocultarTodo();
+  $('sorteador').style.display = '';
+}
+
+function cerrarAdmin(){
+  ocultarTodo();
+  $('inicio').style.display = '';
+}
+
+/* ========= INICIO (CANTIDAD) ========= */
+async function actualizarPrecioTicket(){
+  const { data: confPrecio } = await supabase
+    .from('config').select('valor').eq('clave','precio_ticket').maybeSingle();
+  PRECIO_TICKET = confPrecio?.valor ? parseInt(confPrecio.valor,10) : 5;
+  const precioUnit = $('precioUnit');
+  if (precioUnit) precioUnit.textContent = fmtBs(PRECIO_TICKET);
+  actualizarTotalUI();
+}
+
+function seleccionarCantidad(n){
+  // mínimo 5
+  cantidadElegida = Math.max(5, parseInt(n,10) || 5);
+  const inp = $('cantidadInput');
+  if (inp) inp.value = cantidadElegida;
+  actualizarTotalUI();
+}
+
+function incrementar(){ seleccionarCantidad(cantidadElegida + 1); }
+function decrementar(){ seleccionarCantidad(Math.max(5, cantidadElegida - 1)); }
+
+function actualizarTotalUI(){
+  const total = cantidadElegida * PRECIO_TICKET;
+  const mt = $('montoTotal');
+  if (mt) mt.textContent = fmtBs(total);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const inp = document.getElementById('cantidadInput');
+  if (!inp) return;
+
+  // Mientras escribe, solo actualizamos si el número es válido
+  inp.addEventListener('input', () => {
+    const n = parseInt(inp.value, 10);
+    if (!isNaN(n)) {
+      cantidadElegida = n;
+      actualizarTotalUI();
+    }
+  });
+
+  // Cuando deja el campo, ahí sí forzamos el mínimo 5
+  inp.addEventListener('blur', () => {
+    const n = parseInt(inp.value, 10) || 5;
+    seleccionarCantidad(n);
+  });
+});
+
+
+function continuarCompra(){
+  mostrarRegistro();
+}
+
+/* ========= REGISTRO ========= */
+function validarRegistro(){
+  const nombre = $('nombre').value.trim();
+  const telefono = $('telefono').value.trim();
+  const cedula = $('cedula').value.trim();
+  const email = $('email').value.trim();
+
+  if (!nombre || !telefono || !cedula || !email){
     alert('Completa todos los campos');
     return;
   }
-  usuarioActual = {cedula, nombre, telefono};
-  ocultarTodo();
-  document.getElementById('seleccion').style.display = '';
-  cargarTickets();
-  
-    // Inicia el contador en vivo
-  if (intervaloContadorTickets) clearInterval(intervaloContadorTickets);
-  intervaloContadorTickets = setInterval(actualizarContadorTickets, 5000)
-}
-let PRECIO_TICKET = 5;
 
-// Función para actualizar el precio desde config
-async function actualizarPrecioTicket() {
-  const { data: confPrecio } = await supabase.from('config')
-    .select('valor')
-    .eq('clave', 'precio_ticket')
-    .maybeSingle();
-  PRECIO_TICKET = confPrecio?.valor ? parseInt(confPrecio.valor, 10) : 5;
-}
+  usuarioActual = { nombre, telefono, cedula, email };
 
-
-function actualizarMonto() {
-  const total = seleccionados.length * PRECIO_TICKET;
-  document.getElementById('montoSeleccionado').textContent =
-    `Monto total: ${total} Bs`;
-}
-
-async function cargarTickets(){
-   await actualizarPrecioTicket();
-  await liberarTicketsVencidos();
- const { data: conf } = await supabase
-    .from('config')
-    .select('valor')
-    .eq('clave', 'tickets_visibles')
-    .maybeSingle();
-
-  console.log("Tipo de conf.valor:", typeof conf?.valor, conf?.valor);
-
-  const maxTickets = parseInt(conf?.valor) > 0 ? parseInt(conf.valor) : 100;
-  console.log("maxTickets a usar:", maxTickets);
- // *** 1. Contar tickets disponibles ***
-   // Total de tickets (no importa si están reservados o no)
-   const { count: totalTickets } = await supabase
-     .from('tickets')
-     .select('*', { count: 'exact', head: true });
-
-   // Tickets disponibles actualmente
-   const { count: disponibles } = await supabase
-     .from('tickets')
-     .select('*', { count: 'exact', head: true })
-     .eq('disponible', true);
-
-   // Muestra el contador en la interfaz
-   document.getElementById('ticketContador').textContent = `${disponibles} de ${totalTickets} disponibles`;
-  
-  const { data, error } = await supabase
-    .from('tickets')
-    .select('*')
-    .eq('disponible', true)
-    .order('numero', { ascending: true })
-   .limit(maxTickets);
-
-  console.log(data, error); // <-- Agrega esto para depurar
-
-  const grid = document.getElementById('ticketGrid');
-  grid.innerHTML = '';
-  seleccionados = [];
-   actualizarMonto();
-  (data || []).forEach(ticket => {
-    const div = document.createElement('div');
-    div.className = 'ticket';
-    div.textContent = ticket.numero;
-    div.onclick = () => {
-      if (seleccionados.includes(ticket.numero)) {
-        seleccionados = seleccionados.filter(n => n !== ticket.numero);
-        div.classList.remove('selected');
-      } else {
-        seleccionados.push(ticket.numero);
-        div.classList.add('selected');
-      }
-         actualizarMonto();
-    };
-    grid.appendChild(div);
-  });
-  if (!data || data.length === 0) {
-    grid.innerHTML = '<div style="color:#ff4343;">No hay tickets disponibles.</div>';
-  }
-}
-async function liberarTicketsVencidos() {
-  const hace7min = new Date(Date.now() - 7 * 60 * 1000).toISOString();
-
-  // 1. Buscar tickets vencidos (reservados hace más de 7 minutos)
-  const { data: ticketsVencidos, error: errorTickets } = await supabase
-    .from('tickets')
-    .select('numero, reservado_por, reservado_en')
-    .eq('disponible', false)
-    .lt('reservado_en', hace7min);
-
-  if (errorTickets) {
-    console.error("Error buscando tickets vencidos:", errorTickets);
-    return;
-  }
-
-  if (!ticketsVencidos || ticketsVencidos.length === 0) return;
-
-  // 2. Verifica si hay comprobantes válidos (aprobados o pendientes) por ticket
-  for (let ticket of ticketsVencidos) {
-    const { data: comprobante, error: errorComp } = await supabase
-      .from('comprobantes')
-      .select('id, aprobado, rechazado, tickets')
-      .eq('usuario_id', ticket.reservado_por)
-      .contains('tickets', [ticket.numero])
-      .maybeSingle();
-
-    if (errorComp) {
-      console.error("Error verificando comprobante para ticket", ticket.numero, errorComp);
-      continue;
+  (async () => {
+    // upsert de usuario por cédula
+    let { data: existe } = await supabase
+      .from('usuarios').select('id').eq('cedula', cedula).maybeSingle();
+    let uid = existe?.id;
+    if (!uid){
+      let { data: ins } = await supabase
+        .from('usuarios')
+        .insert({ nombre, telefono, cedula, email })
+        .select('id')
+        .single();
+      uid = ins.id;
     }
+    usuarioActual.id = uid;
 
-    // ⚠️ SOLO liberar si NO hay comprobante, o si está rechazado explícitamente
-    if (!comprobante || comprobante.rechazado === true) {
-      await supabase
-        .from('tickets')
-        .update({ disponible: true, reservado_por: null, reservado_en: null })
-        .eq('numero', ticket.numero);
-
-      console.log(`🎫 Ticket ${ticket.numero} liberado automáticamente.`);
-    } else {
-      console.log(`⛔ Ticket ${ticket.numero} NO se libera (comprobante válido detectado).`);
-    }
-  }
+    // pasar a pago
+    ocultarTodo();
+    $('pago').style.display = '';
+    $('montoPago').textContent = 
+  `Cantidad de cartones: ${cantidadElegida} — Monto a pagar: ${fmtBs(cantidadElegida * PRECIO_TICKET)}`;
+  })();
 }
 
-async function confirmarTickets() {
-  if (seleccionados.length < 2) {
-    alert('Debes seleccionar al menos 2 tickets');
+/* ========= PAGO & COMPROBANTE ========= */
+async function subirComprobante(){
+  const file = $('comprobante').files[0];
+  const referencia = $('referencia').value.trim();
+
+  if (!/^\d{4}$/.test(referencia)){
+    alert('Ingresa los últimos 4 números de la referencia');
     return;
   }
-  // 1. Asegúrate de tener el usuario en la BD
-  let { data: existe } = await supabase.from('usuarios').select('id').eq('cedula', usuarioActual.cedula).maybeSingle();
-  let user_id = existe?.id;
-  if (!user_id) {
-    let { data: insertado } = await supabase.from('usuarios').insert(usuarioActual).select('id').single();
-    user_id = insertado.id;
-  }
-  usuarioActual.id = user_id;
-
-  // 2. Intenta reservar cada ticket SOLO si sigue disponible y guarda la hora
-  let exitosos = [];
-  const now = new Date().toISOString();
-  for (let num of seleccionados) {
-    const { data, error } = await supabase
-      .from('tickets')
-      .update({ 
-        disponible: false, 
-        reservado_por: user_id, 
-        reservado_en: now            // <-- ¡Aquí guardas la hora de reserva!
-      })
-      .eq('numero', num)
-      .eq('disponible', true)
-      .select()
-      .single();
-
-    if (data) exitosos.push(num);
-  }
-
-  // 3. Si no pudo reservar todos, libera los reservados y pide reintentar
-  if (exitosos.length !== seleccionados.length) {
-    // Libera los tickets que sí logró reservar en este intento
-    for (let num of exitosos) {
-      await supabase
-        .from('tickets')
-        .update({ disponible: true, reservado_por: null, reservado_en: null })
-        .eq('numero', num);
-    }
-    alert(
-      `⚠️ ¡Algunos tickets ya no estaban disponibles!\n\nSolo se apartaron estos: ${exitosos.join(', ')}.\nSelecciona otros y vuelve a intentar.`
-    );
-    // Recarga la grilla de tickets
-    await cargarTickets();
-    return;
-  }
-
-  // 4. Si todo salió bien, sigue al pago
-  ocultarTodo();
-  document.getElementById('pago').style.display = '';
-  document.getElementById('montoPago').textContent =
-    `Monto a pagar: ${seleccionados.length * PRECIO_TICKET} Bs`;
-  document.getElementById('comprobante').value = '';
-
-  // (Opcional) Inicia el temporizador visual de 7 minutos en la pantalla de pago
-  if (typeof iniciarTimerReserva === "function") iniciarTimerReserva();
-}
-
-
-// ----------- COMPROBANTE -----------
-async function subirComprobante() {
-  const fileInput = document.getElementById('comprobante');
-  const file = fileInput.files[0];
-  const referencia = document.getElementById('referencia').value.trim();
-
-  // 🧠 Validar referencia primero
-  if (!/^\d{4}$/.test(referencia)) {
-    alert('Ingresa los últimos 4 números de la referencia (exactamente 4 dígitos numéricos)');
-    return;
-  }
-
-  // 🧠 Validar archivo comprobante
-  if (!file) {
+  if (!file){
     alert('Debes subir el comprobante de pago');
     return;
   }
 
-
-  // 1. Subir archivo a storage
+  // subida al bucket (público en tu proyecto actual)
   const nombreArchivo = `${usuarioActual.cedula}_${Date.now()}.${file.name.split('.').pop()}`;
-  const { data: fileData, error: fileError } = await supabase.storage.from('comprobantes').upload(nombreArchivo, file, { upsert: true });
-  console.log("Upload:", fileData, fileError);
+  const { data: up, error: upErr } = await supabase
+    .storage.from('comprobantes')
+    .upload(nombreArchivo, file, { upsert: true });
 
-  if (fileError) {
-    alert('Error subiendo comprobante: ' + fileError.message);
+  if (upErr){
+    alert('Error subiendo comprobante: ' + upErr.message);
     return;
   }
 
-  // 2. Obtener URL PÚBLICA
-  const { data, error } = supabase.storage.from('comprobantes').getPublicUrl(nombreArchivo);
-const url = data.publicUrl;
+  const { data: pub } = supabase.storage.from('comprobantes').getPublicUrl(nombreArchivo);
+  const url = pub.publicUrl;
 
-  console.log("URL comprobante que se va a guardar:", url);
-
-  if (!url) {
-    alert("No se pudo obtener la URL pública del comprobante.");
-    return;
-  }
-  console.log("Usuario actual para comprobante:", usuarioActual);
-  // 3. Crear comprobante en BD
-  const { data: insertData, error: insertError } = await supabase.from('comprobantes').insert({
+  // crear comprobante: guarda CANTIDAD, no tickets
+  const { error: insErr } = await supabase.from('comprobantes').insert({
     usuario_id: usuarioActual.id,
-    tickets: seleccionados,
+    cantidad: cantidadElegida,     // 👈 clave
+    tickets: [],                   // vacío hasta la aprobación
     archivo_url: url,
-    referencia: referencia,
+    referencia,
     aprobado: false,
     rechazado: false
   });
 
-  console.log("Insert:", insertData, insertError);
-  if (insertError) {
-    alert('Error insertando comprobante: ' + insertError.message);
+  if (insErr){
+    alert('Error guardando comprobante: ' + insErr.message);
     return;
   }
 
-  alert('¡Comprobante enviado!');
-  ocultarTodo();
-  document.getElementById('inicio').style.display = '';
+  alert('¡Comprobante enviado! Te avisaremos cuando sea aprobado.');
+  irInicio();
 }
 
-
-// ----------- CONSULTA DE TICKETS -----------
-async function consultarTickets() {
-  const ced = document.getElementById('consultaCedula').value.trim();
-  const ul = document.getElementById('resultadosConsulta');
+/* ========= CONSULTA ========= */
+async function consultarTickets(){
+  const ced = $('consultaCedula').value.trim();
+  const ul = $('resultadosConsulta');
   ul.innerHTML = '';
 
-  // 1. Busca usuario por cédula
   const { data: usuario } = await supabase
-    .from('usuarios')
-    .select('id,nombre')
-    .eq('cedula', ced)
-    .maybeSingle();
+    .from('usuarios').select('id,nombre').eq('cedula', ced).maybeSingle();
 
-  if (!usuario) {
+  if (!usuario){
     ul.innerHTML = "<li>No encontrado</li>";
     return;
   }
 
-  // 2. Busca comprobantes de ese usuario
-  const { data: comprobantes } = await supabase
+  const { data: comps } = await supabase
     .from('comprobantes')
-    .select('tickets, aprobado, rechazado, created_at')
+    .select('tickets, aprobado, rechazado, created_at, cantidad')
     .eq('usuario_id', usuario.id)
     .order('created_at', { ascending: false });
 
-  if (!comprobantes || comprobantes.length === 0) {
+  if (!comps?.length){
     ul.innerHTML = "<li>No tienes comprobantes aún</li>";
     return;
   }
 
-  // 3. Mostrar por comprobante
-  comprobantes.forEach((comp, idx) => {
+  comps.forEach(c => {
     const li = document.createElement('li');
-    if (comp.aprobado) {
-      li.innerHTML = `<span style="color:#00ff66;font-weight:bold;">Aprobado:</span> Tickets: <b>${comp.tickets.join(', ')}</b>`;
-    } else if (comp.rechazado) {
+    if (c.aprobado && Array.isArray(c.tickets) && c.tickets.length){
+      li.innerHTML = `<span style="color:#00ff66;font-weight:bold;">Aprobado:</span> Tickets: <b>${esc(c.tickets.join(', '))}</b>`;
+    } else if (c.rechazado){
       li.innerHTML = `<span style="color:#ffb200;font-weight:bold;">Comprobante rechazado</span>`;
     } else {
-      li.innerHTML = `<span style="color:#ff4343;font-weight:bold;">Pendiente de aprobación</span>`;
+      li.innerHTML = `Pendiente de aprobación — Cantidad: <b>${esc(c.cantidad||0)}</b>`;
     }
     ul.appendChild(li);
   });
 }
 
-// ----------- ADMIN -----------
-let adminAutenticado = false;
-async function loginAdmin() {
-  const correo = document.getElementById('adminCorreo').value.trim();
-  const clave = document.getElementById('adminClave').value.trim();
-  // Solo demo: poner admin real y hash de clave en la BD
-  const { data: admin } = await supabase.from('admins').select('*').eq('correo', correo).maybeSingle();
-  if (!admin || admin.clave_hash !== clave) { // Solo para demo, usar hash real
+/* ========= ADMIN ========= */
+async function loginAdmin(){
+  const correo = $('adminCorreo').value.trim();
+  const clave  = $('adminClave').value.trim();
+
+  // DEMO (igual que tenías): validar contra tabla admins
+  const { data: admin } = await supabase
+    .from('admins').select('*').eq('correo', correo).maybeSingle();
+
+  if (!admin || admin.clave_hash !== clave){
     alert('Acceso denegado');
     return;
   }
+
   adminAutenticado = true;
+  localStorage.setItem('adminCorreo', correo);
   ocultarTodo();
-  cargarComprobantes();
-  document.getElementById('adminPanel').style.display = '';
+  $('adminPanel').style.display = '';
+  await cargarComprobantes();
 }
 
-async function cargarComprobantes() {
- await actualizarPrecioTicket();
- // 1. Leer la cantidad de tickets visibles de la config
-  const { data: conf } = await supabase.from('config')
-    .select('valor')
-    .eq('clave', 'tickets_visibles')
-    .maybeSingle();
+async function cargarComprobantes(){
+  await actualizarPrecioTicket();
 
-  // 2. Mostrar el valor actual en el input (por defecto 100 si no hay valor)
-  document.getElementById('cantidadTicketsMostrar').value = conf?.valor || 100;
+  // mostrar configuraciones actuales
+  const { data: confVis } = await supabase
+    .from('config').select('valor').eq('clave','tickets_visibles').maybeSingle();
+  $('cantidadTicketsMostrar').value = confVis?.valor || 100;
 
-  const { data: confPrecio } = await supabase.from('config')
-  .select('valor')
-  .eq('clave', 'precio_ticket')
-  .maybeSingle();
-document.getElementById('nuevoPrecioTicket').value = confPrecio?.valor || 5;
-  // 3. Cargar y mostrar los comprobantes como antes
+  const { data: confPrecio } = await supabase
+    .from('config').select('valor').eq('clave','precio_ticket').maybeSingle();
+  $('nuevoPrecioTicket').value = confPrecio?.valor || 5;
+
+  // listar comprobantes
   const { data, error } = await supabase
     .from('comprobantes')
-    .select('*,usuarios(cedula,nombre,telefono)')
+    .select('*, usuarios(cedula, nombre, telefono, email)')
     .order('created_at', { ascending: false });
 
-  let totalTickets = 0, totalMonto = 0;
-  const lista = document.getElementById('listaComprobantes');
+  const lista = $('listaComprobantes');
   lista.innerHTML = '';
+
+  let totalTickets = 0, totalMonto = 0;
+
   (data || []).forEach(c => {
-    totalTickets += c.tickets.length;
-    totalMonto += c.tickets.length * PRECIO_TICKET;
-    const div = document.createElement('div');
-    div.className = 'comprobante-card';
-    div.innerHTML = `
-      <b>${c.usuarios?.nombre || ''}</b> (${c.usuarios?.cedula || ''})<br>
-      Tel: ${c.usuarios?.telefono || ''}<br>
-      Tickets: ${c.tickets.join(', ')}<br>
-       Referencia: <b>${c.referencia || '—'}</b><br>
-      <a href="${c.archivo_url}" target="_blank">Ver comprobante</a><br>
+    // si ya está aprobado cuenta sus tickets (si no, cantidad)
+    const vendidos = Array.isArray(c.tickets) && c.tickets.length ? c.tickets.length : 0;
+    const cantParaMonto = vendidos || c.cantidad || 0;
+    totalTickets += cantParaMonto;
+    totalMonto += cantParaMonto * PRECIO_TICKET;
+
+    const card = document.createElement('div');
+    card.className = 'comprobante-card';
+    const estado = c.aprobado ? 'Aprobado' : (c.rechazado ? 'Rechazado' : 'Pendiente');
+    const estadoClass = c.aprobado ? 'aprobado' : (c.rechazado ? 'rechazado' : 'pendiente');
+    card.innerHTML = `
+      <b>${esc(c.usuarios?.nombre||'')}</b> (${esc(c.usuarios?.cedula||'')})<br>
+      Tel: ${esc(c.usuarios?.telefono||'')} — ${esc(c.usuarios?.email||'')}<br>
+      ${c.aprobado ? `Tickets: ${esc((c.tickets||[]).join(', '))}` : `Cantidad solicitada: ${esc(c.cantidad||0)}`}<br>
+      Referencia: <b>${esc(c.referencia||'—')}</b><br>
+      <a href="${esc(c.archivo_url||'#')}" target="_blank" rel="noopener">Ver comprobante</a><br>
       <span class="acciones">
-        <span class="${c.aprobado ? 'aprobado' : (c.rechazado ? 'rechazado' : 'pendiente')}">
-          ${c.aprobado ? 'Aprobado' : (c.rechazado ? 'Rechazado' : 'Pendiente')}
-        </span><br>
-        <button onclick="aprobarComprobante('${c.id}')">Aprobar</button>
-        <button onclick="rechazarComprobante('${c.id}')">Rechazar</button>
+        <span class="${estadoClass}">${estado}</span><br>
+        ${!c.aprobado ? `<button onclick="aprobarComprobante('${c.id}')">Aprobar</button>` : ''}
+        ${!c.aprobado ? `<button onclick="rechazarComprobante('${c.id}')">Rechazar</button>` : ''}
         <button onclick="eliminarComprobante('${c.id}')">Eliminar</button>
       </span>
     `;
-    lista.appendChild(div);
+    lista.appendChild(card);
   });
-  document.getElementById('totales').textContent =
-    `Tickets vendidos: ${totalTickets} | Monto recaudado: ${totalMonto} Bs`;
-  await borrarSiHay20Aprobados();
+
+  $('totales').textContent =
+    `Tickets (solicitados + aprobados): ${totalTickets} | Monto estimado: ${fmtBs(totalMonto)}`;
 }
 
-window.aprobarComprobante = async function(id) {
-  await supabase.from('comprobantes').update({aprobado: true, rechazado: false}).eq('id', id);
-  cargarComprobantes();
-}
-window.rechazarComprobante = async function(id) {
-  // Libera tickets asociados
-  const { data } = await supabase.from('comprobantes').select('tickets,usuario_id').eq('id', id).single();
-  await Promise.all(data.tickets.map(num => supabase.from('tickets').update({disponible: true, reservado_por: null}).eq('numero', num)));
-  await supabase.from('comprobantes').update({aprobado: false, rechazado: true}).eq('id', id);
-  cargarComprobantes();
-}
-window.eliminarComprobante = async function(id) {
-  const { data } = await supabase.from('comprobantes').select('tickets,usuario_id').eq('id', id).single();
-  await Promise.all(data.tickets.map(num => supabase.from('tickets').update({disponible: true, reservado_por: null}).eq('numero', num)));
-  await supabase.from('comprobantes').delete().eq('id', id);
-  cargarComprobantes();
-}
-window.reiniciarTodo = async function() {
-  if (!confirm('¿Seguro de reiniciar? Esto borra todo (tickets, usuarios, comprobantes, y archivos de Storage).')) return;
-
-  // 1. Libera todos los tickets asociados a comprobantes antes de borrar
-  const { data: comprobantes, error: errorComp } = await supabase.from('comprobantes').select('tickets');
-  if (errorComp) {
-    console.error("Error consultando comprobantes:", errorComp);
-    alert("Error consultando comprobantes: " + errorComp.message);
-    return;
+/* aprobar: asigna tickets aleatorios y aprueba en una transacción (RPC) */
+window.aprobarComprobante = async function(id){
+  try{
+    const { data, error } = await supabase.rpc('approve_and_assign_random', { _comp_id: id });
+    if (error) throw error;
+    const lista = Array.isArray(data) ? data.join(', ') : '—';
+    alert(`Aprobado ✅\nTickets asignados: ${lista}`);
+  }catch(e){
+    console.error(e);
+    alert('Error al aprobar/asignar: ' + (e.message || e));
+  }finally{
+    await cargarComprobantes();
   }
-  if (comprobantes && comprobantes.length) {
-    // Junta todos los tickets asociados
-    let todosLosTickets = [];
-    comprobantes.forEach(c => { if (c.tickets && Array.isArray(c.tickets)) todosLosTickets = todosLosTickets.concat(c.tickets); });
-    // Quita duplicados
-    todosLosTickets = [...new Set(todosLosTickets)];
-    // Libera todos los tickets
-    for (let num of todosLosTickets) {
-      await supabase
-        .from('tickets')
-        .update({ disponible: true, reservado_por: null, reservado_en: null })
-        .eq('numero', num);
-    }
+};
+
+/* rechazar: (antes de aprobar) sólo marca rechazado */
+window.rechazarComprobante = async function(id){
+  try{
+    await supabase.from('comprobantes')
+      .update({ aprobado:false, rechazado:true })
+      .eq('id', id);
+    alert('Comprobante rechazado');
+  }catch(e){
+    alert('Error al rechazar: ' + (e.message||e));
+  }finally{
+    await cargarComprobantes();
   }
+};
 
-  // 2. Borra todos los comprobantes (con un WHERE trivial)
-  await supabase.from('comprobantes').delete().not('id', 'is', null);
-
-  // 3. Borra todos los usuarios (con un WHERE trivial)
-  await supabase.from('usuarios').delete().not('id', 'is', null);
-
-  // 4. Limpia todos los tickets (los deja disponibles)
-  await supabase.from('tickets').update({
-    disponible: true,
-    reservado_por: null,
-    reservado_en: null
-  }).not('numero', 'is', null);
-
-  // 5. Borra archivos del bucket Storage (solo raíz)
-  const { data: archivos, error: errorArchivos } = await supabase.storage.from('comprobantes').list('', { limit: 1000 });
-  if (!errorArchivos && archivos && archivos.length) {
-    const nombres = archivos.map(f => f.name);
-    await supabase.storage.from('comprobantes').remove(nombres);
+/* eliminar: borra comprobante; como los tickets sólo se asignan al aprobar, aquí no hay que liberar */
+window.eliminarComprobante = async function(id){
+  try{
+    await supabase.from('comprobantes').delete().eq('id', id);
+    alert('Comprobante eliminado');
+  }catch(e){
+    alert('Error al eliminar: ' + (e.message||e));
+  }finally{
+    await cargarComprobantes();
   }
+};
 
-  // 6. Limpia el panel admin (UI) y recarga comprobantes
-  document.getElementById('listaComprobantes').innerHTML = '';
-  document.getElementById('totales').textContent = '';
+/* guardar config admin */
+async function guardarPrecioTicket(){
+  const precio = parseInt($('nuevoPrecioTicket').value, 10) || 5;
+  await supabase.from('config').upsert([{ clave:'precio_ticket', valor:precio }]);
+  alert('¡Precio actualizado!');
   await cargarComprobantes();
+}
+window.guardarPrecioTicket = guardarPrecioTicket;
 
-  alert('¡Todos los datos han sido reiniciados!');
-  
+async function guardarCantidadTickets(){
+  const cant = parseInt($('cantidadTicketsMostrar').value, 10) || 100;
+  await supabase.from('config').upsert([{ clave:'tickets_visibles', valor:cant }]);
+  alert('Cantidad actualizada');
+}
+window.guardarCantidadTickets = guardarCantidadTickets;
 
+/* ========= FOTO DE INICIO ========= */
+async function mostrarFotoInicio(){
+  const { data: conf } = await supabase
+    .from('config').select('valor').eq('clave','foto-inicio').maybeSingle();
+  const fotoInicio = $('fotoInicio');
+  if (!fotoInicio) return;
+  if (conf?.valor){
+    fotoInicio.src = conf.valor;
+    fotoInicio.style.display = '';
+  }else{
+    fotoInicio.src = "";
+    fotoInicio.style.display = 'none';
+  }
 }
 
-
-// ----------- SORTEADOR -----------
+/* ========= SORTEADOR (SIN CAMBIOS GRANDES) ========= */
 let sorteando = false;
-async function iniciarSorteo() {
+async function iniciarSorteo(){
   if (sorteando) return;
   sorteando = true;
-  const el = document.getElementById('maquinaSorteo');
-  let n = 0, ganadorFinal = null;
-  // Obtener todos los comprobantes aprobados
-  const { data: comprobantes } = await supabase.from('comprobantes').select('tickets,usuarios(nombre,cedula,telefono)').eq('aprobado', true);
+  const el = $('maquinaSorteo');
+  let n = 0;
+
+  const { data: comprobantes } = await supabase
+    .from('comprobantes')
+    .select('tickets, usuarios(nombre,cedula,telefono)')
+    .eq('aprobado', true);
+
   const ticketsAprobados = [];
-  comprobantes.forEach(c => {
-    c.tickets.forEach(num => ticketsAprobados.push({num, usuario: c.usuarios}));
+  (comprobantes||[]).forEach(c=>{
+    (c.tickets||[]).forEach(num=>{
+      ticketsAprobados.push({ num, usuario: c.usuarios });
+    });
   });
-  if (!ticketsAprobados.length) {
+
+  if (!ticketsAprobados.length){
     el.textContent = '000000';
-    document.getElementById('ganador').textContent = "No hay tickets participantes";
+    $('ganador').textContent = "No hay tickets participantes";
     sorteando = false;
     return;
   }
-  // Animación
-  const interval = setInterval(() => {
+
+  const interval = setInterval(()=>{
     el.textContent = String(Math.floor(Math.random()*1000000)).padStart(6,'0');
     n++;
-    if (n > 30) {
+    if (n > 30){
       clearInterval(interval);
-      // Selecciona ganador real al azar
       const ganador = ticketsAprobados[Math.floor(Math.random()*ticketsAprobados.length)];
-      el.textContent = ganador.num;
-      document.getElementById('ganador').innerHTML =
-        `<b>GANADOR:</b> ${ganador.num} <br>${ganador.usuario.nombre}<br>Cédula: ${ganador.usuario.cedula}<br>Tel: ${ganador.usuario.telefono}`;
+      el.textContent = String(ganador.num).padStart(6,'0');
+      $('ganador').innerHTML = `<b>GANADOR:</b> ${esc(ganador.num)}<br>${esc(ganador.usuario?.nombre||'')}
+      <br>Cédula: ${esc(ganador.usuario?.cedula||'')}<br>Tel: ${esc(ganador.usuario?.telefono||'')}`;
       sorteando = false;
     }
   }, 90);
 }
+window.iniciarSorteo = iniciarSorteo;
 
-// Mostrar inicio al arrancar
-ocultarTodo();
-document.getElementById('inicio').style.display = '';
-function irInicio() {
+/* ========= INICIO AL CARGAR ========= */
+window.onload = async function(){
   ocultarTodo();
-  document.getElementById('inicio').style.display = '';
-}
-async function guardarCantidadTickets() {
-  const cant = parseInt(document.getElementById('cantidadTicketsMostrar').value, 10) || 100;
-  await supabase.from('config').upsert([{ clave: 'tickets_visibles', valor: cant }]);
-  alert("Cantidad actualizada correctamente");
-}
-document.addEventListener('keydown', function(e) {
-  // Puedes cambiar ALT + A por la combinación que prefieras
-  if (e.altKey && e.key.toLowerCase() === 'a') {
-    const adminBtn = document.getElementById('btnAdmin');
-    if (adminBtn) {
-      adminBtn.style.display = '';
-      adminBtn.focus(); // Opcional: para que sea más visible
-      // Oculta el botón de nuevo después de unos segundos, si quieres:
-      setTimeout(() => { adminBtn.style.display = 'none'; }, 10000); // 10 segundos visible
-    }
-  }
-});
-// Recomendado: pon este código dentro de window.onload para evitar errores si el DOM aún no está listo.
-window.onload = function() {
-   mostrarFotoInicio();
-  const mainTitle = document.getElementById('mainTitle');
-  const adminBtn = document.getElementById('btnAdmin');
-  
-let adminTapCount = 0;
-let adminTapTimer = null;
+  $('inicio').style.display = '';
+  await actualizarPrecioTicket();
+  await mostrarFotoInicio();
+  seleccionarCantidad(2);
 
-  function adminTapHandler() {
-    adminTapCount++;
-    if (adminTapCount === 5) { // Número de taps/clics secretos
-      adminBtn.style.display = '';
-      adminBtn.focus();
-      adminTapCount = 0;
-      // Oculta el botón después de 10 segundos (opcional)
-      setTimeout(() => { adminBtn.style.display = 'none'; }, 10000);
-    }
-    clearTimeout(adminTapTimer);
-    adminTapTimer = setTimeout(() => { adminTapCount = 0; }, 2000); // Si pasan 2 seg, resetea el contador
-  }
-
-  // Soporte móvil y desktop:
-  mainTitle.addEventListener('click', adminTapHandler);
-  mainTitle.addEventListener('touchend', adminTapHandler);
-
-  // OPCIONAL: También acceso por teclado ALT+A en desktop
-  document.addEventListener('keydown', function(e) {
-    if (e.altKey && e.key.toLowerCase() === 'a') {
-      adminBtn.style.display = '';
-      adminBtn.focus();
-      setTimeout(() => { adminBtn.style.display = 'none'; }, 10000);
+  // Accesos “ocultos” opcionales: ALT+A para mostrar botón admin durante 10s
+  document.addEventListener('keydown', function(e){
+    if (e.altKey && e.key.toLowerCase() === 'a'){
+      const adminBtn = $('btnAdmin');
+      if (adminBtn){
+        adminBtn.style.display = '';
+        adminBtn.focus();
+        setTimeout(()=>{ adminBtn.style.display = 'none'; }, 10000);
+      }
     }
   });
 };
-async function guardarPrecioTicket() {
-  const precio = parseInt(document.getElementById('nuevoPrecioTicket').value, 10) || 5;
-  await supabase.from('config').upsert([{ clave: 'precio_ticket', valor: precio }]);
-  alert("¡Precio actualizado correctamente!");
-  // Recarga comprobantes y totales con el nuevo precio
-  await cargarComprobantes();
-}
-// Subir la foto desde el panel admin
-async function subirFotoInicio() {
-  const fileInput = document.getElementById('fotoInicioInput');
-  const file = fileInput.files[0];
-  if (!file) {
-    alert('Selecciona una imagen primero');
-    return;
-  }
 
-  // Nombre único
-  const nombreArchivo = `inicio_${Date.now()}.${file.name.split('.').pop()}`;
-  const { data, error } = await supabase.storage
-    .from('imagenes-inicio')
-    .upload(nombreArchivo, file, { upsert: true });
+/* ========= EXPOSED PARA HTML ========= */
+window.mostrarRegistro = mostrarRegistro;
+window.mostrarConsulta = mostrarConsulta;
+window.mostrarAdmin    = mostrarAdmin;
+window.cerrarAdmin     = cerrarAdmin;
 
-  if (error) {
-    alert("Error subiendo imagen: " + error.message);
-    return;
-  }
+window.seleccionarCantidad = seleccionarCantidad;
+window.incrementar = incrementar;
+window.decrementar = decrementar;
+window.continuarCompra = continuarCompra;
 
-  // Obtener URL pública
-  const { data: urlData } = supabase.storage.from('imagenes-inicio').getPublicUrl(nombreArchivo);
-  const url = urlData.publicUrl;
+window.validarRegistro = validarRegistro;
+window.subirComprobante = subirComprobante;
+window.consultarTickets = consultarTickets;
 
-  // Guardar la URL en config
-  await supabase.from('config').upsert([{ clave: 'foto-inicio', valor: url }]); 
-  alert('Foto de inicio actualizada');
-  fileInput.value = '';
-  mostrarFotoInicio(); // Refresca la imagen en pantalla
-}
-
-// Mostrar la foto en el inicio
+window.loginAdmin = loginAdmin;
+// Muestra la foto del premio en portada + preview en Admin
 async function mostrarFotoInicio() {
-  const { data: conf } = await supabase.from('config')
-    .select('valor')
-    .eq('clave', 'foto-inicio')
-    .maybeSingle();
-  const fotoInicio = document.getElementById('fotoInicio');
-  if (conf?.valor) {
-    fotoInicio.src = conf.valor;
-    fotoInicio.style.display = '';
-  } else {
-    fotoInicio.src = "";           // No muestra nada
-    fotoInicio.style.display = 'none'; // Opcional: oculta el elemento si no hay imagen
+  try {
+    const { data: conf, error } = await supabase
+      .from('config')
+      .select('valor')
+      .eq('clave', 'foto-inicio')
+      .maybeSingle();
+
+    const imgHome   = document.getElementById('fotoInicio');
+    const imgPrev   = document.getElementById('previewFotoInicio');
+    const estadoEl  = document.getElementById('fotoInicioEstado');
+
+    const url = conf?.valor || '';
+
+    if (imgHome) {
+      if (url) { imgHome.src = url; imgHome.style.display = ''; }
+      else { imgHome.src = ''; imgHome.style.display = 'none'; }
+    }
+
+    if (imgPrev) {
+      if (url) { imgPrev.src = url; imgPrev.style.display = ''; }
+      else { imgPrev.src = ''; imgPrev.style.display = 'none'; }
+    }
+
+    if (estadoEl) estadoEl.textContent = url ? 'Actualizada' : 'No configurada';
+  } catch (e) {
+    console.error('mostrarFotoInicio()', e);
   }
 }
 
+// Subir foto al bucket 'imagenes-inicio' y guardar URL en config.foto-inicio
+async function subirFotoInicio() {
+  const input = document.getElementById('fotoInicioInput');
+  const file  = input?.files?.[0];
+  if (!file) { alert('Selecciona una imagen'); return; }
 
+  const nombre = `inicio_${Date.now()}.${file.name.split('.').pop()}`;
+
+  // 1) Subir a Storage
+  const { error: upErr } = await supabase
+    .storage.from('imagenes-inicio')
+    .upload(nombre, file, { upsert: true });
+
+  if (upErr) { alert('Error subiendo: ' + upErr.message); return; }
+
+  // 2) Obtener URL pública
+  const { data: urlData } = supabase
+    .storage.from('imagenes-inicio')
+    .getPublicUrl(nombre);
+
+  const url = urlData?.publicUrl;
+  if (!url) { alert('No se pudo obtener URL pública'); return; }
+
+  // 3) Guardar en config
+  await supabase.from('config')
+    .upsert([{ clave: 'foto-inicio', valor: url }]);
+
+  // 4) UI
+  document.getElementById('fotoInicioInput').value = '';
+  await mostrarFotoInicio();
+  alert('Foto actualizada');
+}
+
+// Borrar foto de inicio (archivo en Storage + valor en config)
 async function borrarFotoInicio() {
-  if (!confirm('¿Seguro que quieres borrar la foto de inicio?')) return;
+  if (!confirm('¿Borrar la foto de inicio?')) return;
 
-  // Obtén la URL de la foto desde config
-  const { data: conf } = await supabase.from('config')
+  const { data: conf } = await supabase
+    .from('config')
     .select('valor')
     .eq('clave', 'foto-inicio')
     .maybeSingle();
 
-  if (conf?.valor) {
-    // Extrae el nombre del archivo desde la URL
-    // Ejemplo de URL: https://.../imagenes-inicio/inicio_1753291802562.png
-    const partes = conf.valor.split('/');
-    const nombreArchivo = partes[partes.length - 1];
+  const url = conf?.valor || '';
+  if (url) {
+    // nombre de archivo desde la URL
+    const partes = url.split('/');
+    const nombre = partes[partes.length - 1];
 
-    // Borra el archivo del bucket
-    console.log("Intentando borrar archivo:", nombreArchivo);
-    const { error: delError } = await supabase.storage
-      .from('imagenes-inicio')
-      .remove([nombreArchivo]);
-    if (delError) {
-      alert('Error borrando la imagen: ' + delError.message);
-      return;
-    }
+    await supabase.storage.from('imagenes-inicio').remove([nombre]);
   }
 
-  // Borra la URL de la tabla config
   await supabase.from('config')
     .update({ valor: null })
     .eq('clave', 'foto-inicio');
 
-  alert('Foto de inicio borrada');
-  mostrarFotoInicio(); // Para refrescar la vista
+  await mostrarFotoInicio();
+  alert('Foto borrada');
 }
-async function cambiarClaveAdmin() {
-  const claveActual = document.getElementById('adminClaveActual').value.trim();
-  const claveNueva = document.getElementById('adminClaveNueva').value.trim();
-  const claveNueva2 = document.getElementById('adminClaveNueva2').value.trim();
 
-  if (!claveActual || !claveNueva || !claveNueva2) {
-    alert('Completa todos los campos');
-    return;
-  }
-  if (claveNueva.length < 5) {
-    alert('La nueva clave debe tener al menos 5 caracteres');
-    return;
-  }
-  if (claveNueva !== claveNueva2) {
-    alert('Las nuevas claves no coinciden');
-    return;
-  }
+// Llama al cargar la app (ya lo puedes tener, pero asegúrate de invocarla)
+window.addEventListener('load', mostrarFotoInicio);
+function toggleTheme() {
+  const body = document.body;
+  const btn  = document.getElementById('btnToggleTheme');
 
-  // Busca el admin logueado (puedes guardar el correo en variable global al loguear)
-  const correo = document.getElementById('adminCorreo')?.value || localStorage.getItem("adminCorreo");
-  if (!correo) {
-    alert('No se puede determinar el usuario admin actual');
-    return;
-  }
-
-  // Verifica clave actual
-  const { data: admin, error } = await supabase
-    .from('admins')
-    .select('*')
-    .eq('correo', correo)
-    .maybeSingle();
-  if (!admin || admin.clave_hash !== claveActual) {
-    alert('Clave actual incorrecta');
-    return;
-  }
-
-  // Actualiza la clave (en demo: almacena directo, en producción: guarda hash)
-  const { error: updError } = await supabase
-    .from('admins')
-    .update({ clave_hash: claveNueva })
-    .eq('correo', correo);
-
-  if (updError) {
-    alert('Error cambiando clave: ' + updError.message);
-    return;
-  }
-
-  alert('¡Clave de admin cambiada!');
-  // Limpia los campos
-  document.getElementById('adminClaveActual').value = '';
-  document.getElementById('adminClaveNueva').value = '';
-  document.getElementById('adminClaveNueva2').value = '';
-}
-function toggleCambioClave() {
-  const div = document.getElementById('divCambioClave');
-  const btn = document.getElementById('btnMostrarClave');
-  if (div.style.display === 'none') {
-    div.style.display = '';
-    btn.textContent = 'Ocultar cambio de clave';
+  if (body.classList.contains('dark')) {
+    body.classList.remove('dark');
+    body.classList.add('invert');               // ← en vez de “claro”, usamos invertido
+    localStorage.setItem('theme', 'invert');
+    if (btn) btn.textContent = '🌙 Modo Oscuro';
+  } else if (body.classList.contains('invert')) {
+    body.classList.remove('invert');
+    body.classList.add('dark');
+    localStorage.setItem('theme', 'dark');
+    if (btn) btn.textContent = '☀️ Modo Claro (invertido)';
   } else {
-    div.style.display = 'none';
-    btn.textContent = 'Cambiar clave admin';
-    // Limpia los campos cuando se oculta
-    document.getElementById('adminClaveActual').value = '';
-    document.getElementById('adminClaveNueva').value = '';
-    document.getElementById('adminClaveNueva2').value = '';
+    // estado inicial: forzamos dark
+    body.classList.add('dark');
+    localStorage.setItem('theme', 'dark');
+    if (btn) btn.textContent = '☀️ Modo Claro (invertido)';
   }
 }
-async function actualizarContadorTickets() {
-  // Total de tickets
-  const { count: totalTickets } = await supabase
-    .from('tickets')
-    .select('*', { count: 'exact', head: true });
 
-  // Tickets disponibles actualmente
-  const { count: disponibles } = await supabase
-    .from('tickets')
-    .select('*', { count: 'exact', head: true })
-    .eq('disponible', true);
+// Aplicar al cargar (sin “togglear”)
+window.addEventListener('load', () => {
+  const theme = localStorage.getItem('theme') || 'dark';
+  document.body.classList.toggle('dark',   theme === 'dark');
+  document.body.classList.toggle('invert', theme === 'invert');
 
-  // Actualiza el contador en pantalla (solo si el elemento existe)
-  const el = document.getElementById('ticketContador');
-  if (el) {
-    el.textContent = `${disponibles} de ${totalTickets} disponibles`;
+  const btn = document.getElementById('btnToggleTheme');
+  if (btn) btn.textContent = theme === 'dark' ? '☀️ Modo Claro (invertido)' : '🌙 Modo Oscuro';
+});
+
+async function mostrarTitulo() {
+  const { data: conf } = await supabase
+    .from('config')
+    .select('valor')
+    .eq('clave', 'titulo_rifa')
+    .maybeSingle();
+
+  const tituloEl = document.getElementById('tituloRifa');
+  if (tituloEl) {
+    tituloEl.textContent = conf?.valor || 'COMBO SOLUCIÓN #6';
+  }
+
+  const inputAdmin = document.getElementById('nuevoTitulo');
+  if (inputAdmin) {
+    inputAdmin.value = conf?.valor || '';
   }
 }
-async function borrarSiHay20Aprobados() {
-  const { data: aprobados, error } = await supabase
-    .from('comprobantes')
-    .select('id, archivo_url')
-    .eq('aprobado', true);
 
-  if (error || !aprobados) return;
+async function guardarTitulo() {
+  const nuevo = document.getElementById('nuevoTitulo').value.trim();
+  await supabase.from('config')
+    .upsert([{ clave: 'titulo_rifa', valor: nuevo }]);
+  alert('Título actualizado');
+  await mostrarTitulo();
+}
+window.guardarTitulo = guardarTitulo;
 
-  if (aprobados.length < 10) return; // solo ejecuta si hay 20 o más
-
-  // 1. Extrae nombres de archivo desde las URLs
-  const archivosABorrar = aprobados
-    .map(c => {
-      try {
-        const url = new URL(c.archivo_url);
-        const partes = url.pathname.split('/');
-        return partes[partes.length - 1];
-      } catch {
-        return null;
-      }
-    })
-    .filter(Boolean);
-
-  if (archivosABorrar.length === 0) return;
-
-  // 2. Borra archivos del bucket
-  const { error: errorBorrado } = await supabase
-    .storage
-    .from('comprobantes')
-    .remove(archivosABorrar);
-
-  if (errorBorrado) {
-    console.error("❌ Error borrando archivos del bucket:", errorBorrado);
-    return;
+// Lista y borra TODO el contenido del bucket (raíz). Agrega prefix si usas subcarpetas.
+async function borrarTodoBucket(bucket) {
+  let page = 0, all = [];
+  while (true) {
+    const { data, error } = await supabase.storage.from(bucket).list('', { limit: 100, offset: page * 100 });
+    if (error) throw new Error('Storage list: ' + error.message);
+    if (!data || data.length === 0) break;
+    all = all.concat(data.map(f => f.name));
+    if (data.length < 100) break;
+    page++;
   }
+  for (let i = 0; i < all.length; i += 100) {
+    const slice = all.slice(i, i + 100);
+    const { error } = await supabase.storage.from(bucket).remove(slice);
+    if (error) throw new Error('Storage remove: ' + error.message);
+  }
+}
 
-  // 3. Limpia las URLs en la BD
-  for (let c of aprobados) {
-    await supabase
+async function reiniciarRifa() {
+  if (!confirm("⚠️ Borrará archivos de comprobantes, liberará tickets y vaciará la tabla de comprobantes. ¿Seguro?")) return;
+
+  try {
+    // 1) BORRAR ARCHIVOS DEL BUCKET (robusto, sin depender de URLs)
+    await borrarTodoBucket('comprobantes');
+
+    // 2) LIBERAR TODOS LOS TICKETS (tu esquema real)
+    const { error: updErr } = await supabase
+      .from('tickets')
+      .update({
+        reservado_por: null,
+        reservado_en: null,
+        vendido: false,   // si usas esta columna
+        disponible: true
+      })
+      .not('numero', 'is', null); // o .not('id','is', null) si tienes id
+    if (updErr) throw new Error('Tickets: ' + updErr.message);
+
+    // 3) BORRAR TODOS LOS COMPROBANTES
+    const { error: delErr } = await supabase
       .from('comprobantes')
-      .update({ archivo_url: null })
-      .eq('id', c.id);
-  }
+      .delete()
+      .not('id', 'is', null);
+    if (delErr) throw new Error('Comprobantes: ' + delErr.message);
+    
+    // 3.5) (Opcional) Borrar TODOS los usuarios de la tabla pública
+const { error: delUsersErr } = await supabase
+  .from('usuarios')
+  .delete()
+  .not('id','is', null);
 
-  console.log(`🗑️ Borrados ${archivosABorrar.length} archivos de comprobantes aprobados.`);
+if (delUsersErr) { alert("❌ No se borraron usuarios: " + delUsersErr.message); return; }
+
+
+    alert("✅ Rifa reiniciada. Archivos borrados, tickets liberados y comprobantes eliminados.");
+    await cargarComprobantes();
+  } catch (e) {
+    alert('❌ ' + e.message);
+  }
 }
+window.reiniciarRifa = reiniciarRifa;
+
+// === Entradas móviles al Admin ===
+(function enableMobileAdminAccess(){
+  // 1) Mantén presionado el LOGO ~0.8s
+  const logo = document.getElementById('logoRifa');
+  if (logo){
+    let pressTimer;
+    const start = ()=> pressTimer = setTimeout(() => mostrarAdmin(), 800);
+    const cancel = ()=> clearTimeout(pressTimer);
+    logo.addEventListener('touchstart', start, {passive:true});
+    logo.addEventListener('touchend', cancel);
+    logo.addEventListener('touchcancel', cancel);
+  }
+})();
