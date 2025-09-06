@@ -674,15 +674,33 @@ if (delUsersErr) { alert("❌ No se borraron usuarios: " + delUsersErr.message);
 window.reiniciarRifa = reiniciarRifa;
 
 // === Entradas móviles al Admin ===
-(function enableMobileAdminAccess(){
-  // 1) Mantén presionado el LOGO ~0.8s
+// === 5 toques en el LOGO para abrir Admin ===
+window.addEventListener('load', () => {
   const logo = document.getElementById('logoRifa');
-  if (logo){
-    let pressTimer;
-    const start = ()=> pressTimer = setTimeout(() => mostrarAdmin(), 800);
-    const cancel = ()=> clearTimeout(pressTimer);
-    logo.addEventListener('touchstart', start, {passive:true});
-    logo.addEventListener('touchend', cancel);
-    logo.addEventListener('touchcancel', cancel);
-  }
-})();
+  if (!logo) return;
+
+  const WINDOW_MS = 2500;   // ventana de tiempo para contar 5 toques
+  let taps = 0;
+  let firstTs = 0;
+
+  const countTap = () => {
+    const now = Date.now();
+    if (!firstTs || (now - firstTs) > WINDOW_MS) {
+      // reinicia la ventana si pasó el tiempo
+      firstTs = now;
+      taps = 0;
+    }
+    taps++;
+    if (taps >= 5) {
+      taps = 0;
+      firstTs = 0;
+      try { mostrarAdmin(); } catch {}
+    }
+  };
+
+  // Móvil (toque)
+  logo.addEventListener('touchend', () => countTap(), { passive: true });
+
+  // Desktop (click) – opcional, por si lo pruebas en PC
+  logo.addEventListener('click', () => countTap());
+});
