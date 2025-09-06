@@ -113,6 +113,25 @@
     <section id="adminPanel" style="display:none;">
       <div style="margin-bottom:15px;">
         <div style="margin-bottom:15px;">
+          <!-- Botón para mostrar/ocultar -->
+<button id="btnMostrarCambioClave" onclick="toggleCambioClave()" style="margin:12px 0;">
+  🔐 Cambiar contraseña
+</button>
+
+<!-- Caja oculta -->
+<div id="cambioClaveBox" class="admin-card hidden" style="margin:16px 0;">
+  <h3>Cambiar contraseña (admins)</h3>
+  <input id="adminCorreoCambio" placeholder="Correo admin" />
+  <input id="adminPassActual2" type="password" placeholder="Contraseña actual" />
+  <input id="adminPassNueva2"  type="password" placeholder="Nueva contraseña (mín. 8)" />
+  <input id="adminPassRepite2" type="password" placeholder="Repite la nueva contraseña" />
+  <div style="display:flex; gap:8px; margin-top:8px;">
+    <button onclick="adminCambiarClaveTabla()">Guardar</button>
+    <button class="btn-inicio" onclick="toggleCambioClave()">Cerrar</button>
+  </div>
+</div>
+
+
   <label for="nuevoTitulo">Título de la rifa:</label>
   <input type="text" id="nuevoTitulo" style="width:200px;display:inline;"/>
   <button onclick="guardarTitulo()">Guardar</button>
