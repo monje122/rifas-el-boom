@@ -71,7 +71,7 @@ async function actualizarPrecioTicket(){
 
 function seleccionarCantidad(n){
   // mínimo 3
-  cantidadElegida = Math.max(5, parseInt(n,10) || 3);
+  cantidadElegida = Math.max(3, parseInt(n,10) || 3);
   const inp = $('cantidadInput');
   if (inp) inp.value = cantidadElegida;
   actualizarTotalUI();
