@@ -63,22 +63,22 @@ function cerrarAdmin(){
 async function actualizarPrecioTicket(){
   const { data: confPrecio } = await supabase
     .from('config').select('valor').eq('clave','precio_ticket').maybeSingle();
-  PRECIO_TICKET = confPrecio?.valor ? parseInt(confPrecio.valor,10) : 5;
+  PRECIO_TICKET = confPrecio?.valor ? parseInt(confPrecio.valor,10) : 3;
   const precioUnit = $('precioUnit');
   if (precioUnit) precioUnit.textContent = fmtBs(PRECIO_TICKET);
   actualizarTotalUI();
 }
 
 function seleccionarCantidad(n){
-  // mínimo 5
-  cantidadElegida = Math.max(5, parseInt(n,10) || 5);
+  // mínimo 3
+  cantidadElegida = Math.max(5, parseInt(n,10) || 3);
   const inp = $('cantidadInput');
   if (inp) inp.value = cantidadElegida;
   actualizarTotalUI();
 }
 
 function incrementar(){ seleccionarCantidad(cantidadElegida + 1); }
-function decrementar(){ seleccionarCantidad(Math.max(5, cantidadElegida - 1)); }
+function decrementar(){ seleccionarCantidad(Math.max(3, cantidadElegida - 1)); }
 
 function actualizarTotalUI(){
   const total = cantidadElegida * PRECIO_TICKET;
@@ -99,9 +99,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Cuando deja el campo, ahí sí forzamos el mínimo 5
+  // Cuando deja el campo, ahí sí forzamos el mínimo 3
   inp.addEventListener('blur', () => {
-    const n = parseInt(inp.value, 10) || 5;
+    const n = parseInt(inp.value, 10) || 3;
     seleccionarCantidad(n);
   });
 });
