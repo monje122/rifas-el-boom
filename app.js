@@ -597,17 +597,17 @@ function toggleTheme() {
     body.classList.remove('dark');
     body.classList.add('invert');               // ← en vez de “claro”, usamos invertido
     localStorage.setItem('theme', 'invert');
-    if (btn) btn.textContent = '🌙 Modo Oscuro';
+    if (btn) btn.textContent = '🌙 ';
   } else if (body.classList.contains('invert')) {
     body.classList.remove('invert');
     body.classList.add('dark');
     localStorage.setItem('theme', 'dark');
-    if (btn) btn.textContent = '☀️ Modo Claro (invertido)';
+    if (btn) btn.textContent = '☀️ ';
   } else {
     // estado inicial: forzamos dark
     body.classList.add('dark');
     localStorage.setItem('theme', 'dark');
-    if (btn) btn.textContent = '☀️ Modo Claro (invertido)';
+    if (btn) btn.textContent = '☀️ ';
   }
 }
 
@@ -618,7 +618,7 @@ window.addEventListener('load', () => {
   document.body.classList.toggle('invert', theme === 'invert');
 
   const btn = document.getElementById('btnToggleTheme');
-  if (btn) btn.textContent = theme === 'dark' ? '☀️ Modo Claro (invertido)' : '🌙 Modo Oscuro';
+  if (btn) btn.textContent = theme === 'dark' ? '☀️ ' : '🌙 ';
 });
 
 async function mostrarTitulo() {
