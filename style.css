@@ -410,3 +410,23 @@ body.invert picture,
 body.invert .no-invert {          /* usa .no-invert en cualquier elemento que quieras excluir */
   filter: invert(1) hue-rotate(180deg);
 }
+#app {
+  position: relative;
+}
+
+.logos-superiores {
+  position: absolute;
+  top: 10px;     /* distancia desde arriba */
+  right: 10px;   /* esquina derecha */
+  display: flex;
+  gap: 10px;     /* espacio entre logos */
+}
+
+.logos-superiores img {
+  height: 60px;   /* tamaño de cada logo */
+  transition: transform 0.3s;
+}
+
+.logos-superiores img:hover {
+  transform: scale(1.1); /* efecto zoom */
+}
