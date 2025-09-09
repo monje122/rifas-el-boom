@@ -321,6 +321,7 @@ window.aprobarComprobante = async function(id){
     alert('Error al aprobar/asignar: ' + (e.message || e));
   }finally{
     await cargarComprobantes();
+    await limpiarComprobantesAprobadosSi(50);
   }
 };
 
@@ -384,6 +385,7 @@ window.eliminarComprobante = async function(id){
   } finally {
     await cargarComprobantes();
   }
+  await limpiarComprobantesAprobadosSi(50);
 };
 
 /* guardar config admin */
@@ -589,6 +591,7 @@ async function borrarFotoInicio() {
 
 // Llama al cargar la app (ya lo puedes tener, pero asegúrate de invocarla)
 window.addEventListener('load', mostrarFotoInicio);
+
 function toggleTheme() {
   const body = document.body;
   const btn  = document.getElementById('btnToggleTheme');
@@ -597,7 +600,7 @@ function toggleTheme() {
     body.classList.remove('dark');
     body.classList.add('invert');               // ← en vez de “claro”, usamos invertido
     localStorage.setItem('theme', 'invert');
-    if (btn) btn.textContent = '🌙 ';
+    if (btn) btn.textContent = '🌙';
   } else if (body.classList.contains('invert')) {
     body.classList.remove('invert');
     body.classList.add('dark');
@@ -620,6 +623,7 @@ window.addEventListener('load', () => {
   const btn = document.getElementById('btnToggleTheme');
   if (btn) btn.textContent = theme === 'dark' ? '☀️ ' : '🌙 ';
 });
+
 
 async function mostrarTitulo() {
   const { data: conf } = await supabase
@@ -791,3 +795,22 @@ window.adminCambiarClaveTabla = async function () {
   document.getElementById('adminPassRepite2').value = '';
   toggleCambioClave(); // ocultar al terminar
 };
+async function limpiarComprobantesAprobadosSi(umbral = 50) {
+  const { data: aprobados } = await supabase
+    .from('comprobantes')
+    .select('id, archivo_url')
+    .eq('aprobado', true);
+
+  if (!aprobados || aprobados.length < umbral) return;
+
+  const nombres = aprobados
+    .map(c => { try { return new URL(c.archivo_url).pathname.split('/').pop(); } catch { return null; } })
+    .filter(Boolean);
+
+  if (nombres.length) {
+    await supabase.storage.from('comprobantes').remove(nombres);
+    await supabase.from('comprobantes')
+      .update({ archivo_url: null })
+      .in('id', aprobados.map(c => c.id));
+  }
+}
