@@ -670,45 +670,76 @@ async function borrarTodoBucket(bucket) {
   }
 }
 
+// Helper: leer un valor desde config
+async function getConfigValor(clave) {
+  const { data, error } = await supabase
+    .from('config')
+    .select('valor')
+    .eq('clave', clave)
+    .maybeSingle();
+  if (error) throw new Error('Config: ' + error.message);
+  return data?.valor ?? null;
+}
+
 async function reiniciarRifa() {
-  if (!confirm("⚠️ Borrará archivos de comprobantes, liberará tickets y vaciará la tabla de comprobantes. ¿Seguro?")) return;
+  // 0) Obtener la clave de reinicio desde Supabase
+  let claveCorrecta;
+  try {
+    claveCorrecta = await getConfigValor('clave_reinicio'); // ← guarda esta clave en la tabla config
+  } catch (e) {
+    alert('❌ No se pudo leer clave de reinicio: ' + (e.message || e));
+    return;
+  }
+  if (!claveCorrecta) {
+    alert('❌ No existe "clave_reinicio" en config. Crea una en la tabla config.');
+    return;
+  }
+
+  // 1) Pedir la clave al admin
+  const claveIngresada = prompt('⚠️ Para reiniciar escribe la clave secreta:');
+  if (claveIngresada !== claveCorrecta) {
+    alert('❌ Clave incorrecta. Operación cancelada.');
+    return;
+  }
+
+  // 2) Confirmación final
+  if (!confirm('⚠️ Borrará archivos de comprobantes, liberará tickets y vaciará la tabla de comprobantes. ¿Seguro?')) return;
 
   try {
-    // 1) BORRAR ARCHIVOS DEL BUCKET (robusto, sin depender de URLs)
+    // 3) BORRAR ARCHIVOS DEL BUCKET (robusto)
     await borrarTodoBucket('comprobantes');
 
-    // 2) LIBERAR TODOS LOS TICKETS (tu esquema real)
+    // 4) LIBERAR TODOS LOS TICKETS
     const { error: updErr } = await supabase
       .from('tickets')
       .update({
         reservado_por: null,
         reservado_en: null,
-        vendido: false,   // si usas esta columna
+        vendido: false,
         disponible: true
       })
-      .not('numero', 'is', null); // o .not('id','is', null) si tienes id
+      .not('numero', 'is', null);
     if (updErr) throw new Error('Tickets: ' + updErr.message);
 
-    // 3) BORRAR TODOS LOS COMPROBANTES
+    // 5) BORRAR TODOS LOS COMPROBANTES
     const { error: delErr } = await supabase
       .from('comprobantes')
       .delete()
       .not('id', 'is', null);
     if (delErr) throw new Error('Comprobantes: ' + delErr.message);
-    
-    // 3.5) (Opcional) Borrar TODOS los usuarios de la tabla pública
-const { error: delUsersErr } = await supabase
-  .from('usuarios')
-  .delete()
-  .not('id','is', null);
 
-if (delUsersErr) { alert("❌ No se borraron usuarios: " + delUsersErr.message); return; }
+    // 6) (Opcional) BORRAR TODOS LOS USUARIOS
+    // Si NO quieres borrar usuarios, comenta este bloque:
+    const { error: delUsersErr } = await supabase
+      .from('usuarios')
+      .delete()
+      .not('id','is', null);
+    if (delUsersErr) throw new Error('Usuarios: ' + delUsersErr.message);
 
-
-    alert("✅ Rifa reiniciada. Archivos borrados, tickets liberados y comprobantes eliminados.");
+    alert('✅ Rifa reiniciada. Archivos borrados, tickets liberados y comprobantes eliminados.');
     await cargarComprobantes();
   } catch (e) {
-    alert('❌ ' + e.message);
+    alert('❌ ' + (e.message || e));
   }
 }
 window.reiniciarRifa = reiniciarRifa;
