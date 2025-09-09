@@ -224,7 +224,7 @@ async function consultarTickets(){
   comps.forEach(c => {
     const li = document.createElement('li');
     if (c.aprobado && Array.isArray(c.tickets) && c.tickets.length){
-      li.innerHTML = `<span style="color:#00ff66;font-weight:bold;">Aprobado:</span> Tickets: <b>${esc(c.tickets.join(', '))}</b>`;
+      li.innerHTML = `<span style="color:#00ff66;font-weight:bold;">Aprobado:</span> Tickets: <b>${esc(c.tickets.map(fmtTicket).join(', '))}</b>`;
     } else if (c.rechazado){
       li.innerHTML = `<span style="color:#ffb200;font-weight:bold;">Comprobante rechazado</span>`;
     } else {
@@ -292,7 +292,7 @@ async function cargarComprobantes(){
     card.innerHTML = `
       <b>${esc(c.usuarios?.nombre||'')}</b> (${esc(c.usuarios?.cedula||'')})<br>
       Tel: ${esc(c.usuarios?.telefono||'')} — ${esc(c.usuarios?.email||'')}<br>
-      ${c.aprobado ? `Tickets: ${esc((c.tickets||[]).join(', '))}` : `Cantidad solicitada: ${esc(c.cantidad||0)}`}<br>
+      ${c.aprobado ? `Tickets: ${esc((c.tickets||[]).map(fmtTicket).join(', '))}` : `Cantidad solicitada: ${esc(c.cantidad||0)}`}<br>
       Referencia: <b>${esc(c.referencia||'—')}</b><br>
       <a href="${esc(c.archivo_url||'#')}" target="_blank" rel="noopener">Ver comprobante</a><br>
       <span class="acciones">
@@ -814,3 +814,7 @@ async function limpiarComprobantesAprobadosSi(umbral = 50) {
       .in('id', aprobados.map(c => c.id));
   }
 }
+function fmtTicket(n) {
+  return String(n).padStart(4, "0");
+}
+
