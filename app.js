@@ -848,4 +848,57 @@ async function limpiarComprobantesAprobadosSi(umbral = 50) {
 function fmtTicket(n) {
   return String(n).padStart(4, "0");
 }
+async function buscarTicket(){
+  const out = $('resultadoTicket');
+  out.textContent = '';
+  const raw = ($('ticketBuscar').value || '').trim();
+
+  const n = parseInt(raw, 10);
+  if (isNaN(n) || n < 0){
+    out.innerHTML = `<span style="color:#ffb200">Ingresa un número de ticket válido.</span>`;
+    return;
+  }
+
+  try{
+    // Busca comprobantes APROBADOS que contengan ese número en su array 'tickets'
+    const { data: comp, error } = await supabase
+      .from('comprobantes')
+      .select(`
+        id,
+        aprobado,
+        tickets,
+        usuarios:usuarios (
+          nombre,
+          cedula,
+          email,
+          telefono
+        )
+      `)
+      .eq('aprobado', true)
+      .contains('tickets', [n])
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!comp){
+      out.innerHTML = `<span style="color:#ff4343">No se encontró un ticket aprobado con ese número.</span>`;
+      return;
+    }
+
+    const u = comp.usuarios || {};
+    out.innerHTML = `
+      <div style="background:#1b2330;border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:12px;">
+        <div><b>Ticket:</b> ${esc(fmtTicket(n))}</div>
+        <div><b>Nombre:</b> ${esc(u.nombre || '—')}</div>
+        <div><b>Cédula:</b> ${esc(u.cedula || '—')}</div>
+        <div><b>Correo:</b> ${esc(u.email || '—')}</div>
+        <div><b>Teléfono:</b> ${esc(u.telefono || '—')}</div>
+      </div>
+    `;
+  }catch(e){
+    console.error(e);
+    out.innerHTML = `<span style="color:#ff4343">Error consultando el ticket. Intenta de nuevo.</span>`;
+  }
+}
+window.buscarTicket = buscarTicket;
 
