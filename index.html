@@ -156,9 +156,15 @@
     <img id="previewFotoInicio" style="max-width:420px; border-radius:12px; box-shadow:0 8px 24px #0006; display:none;">
   </div>
 </div>
-  <!-- boton sorteador -->
-<div style="margin-top:20px;">
-  <button onclick="mostrarSorteador()">🎰 Ir al Sorteador</button>
+
+<!-- Buscador por ticket -->
+<div class="card" style="margin-top:12px">
+  <h3 style="margin:0 0 8px 0;">🔎 Buscar por ticket</h3>
+  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+    <input id="ticketBuscar" type="number" min="0" placeholder="Ej: 1234" style="max-width:240px;">
+    <button onclick="buscarTicket()">Buscar ticket</button>
+  </div>
+  <div id="resultadoTicket" style="margin-top:10px; font-size:.95rem; color:#cfe6ff;"></div>
 </div>
 
         <label for="nuevoPrecioTicket">Precio del ticket:</label>
