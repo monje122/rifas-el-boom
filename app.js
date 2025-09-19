@@ -1,5 +1,4 @@
 
-
 /* ========= SUPABASE ========= */
 const supabaseUrl = "https://rrudrhkuguuyxwzjuuuo.supabase.co";
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJydWRyaGt1Z3V1eXh3emp1dXVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcxMTA1MjYsImV4cCI6MjA3MjY4NjUyNn0.CQOZXAvIaBwFgwo3ip3kfJEE2DhuMo-mohwrkqZ3GX4";
@@ -27,6 +26,7 @@ function ocultarTodo(){
     'inicio','registro','pago','consulta',
     'adminLogin','adminPanel','sorteador'
   ].forEach(id => { const el = $(id); if (el) el.style.display = 'none'; });
+  
 }
 
 function irInicio(){
@@ -112,11 +112,12 @@ function continuarCompra(){
 }
 
 /* ========= REGISTRO ========= */
-function validarRegistro(){
-  const nombre = $('nombre').value.trim();
+/* ========= REGISTRO ========= */
+async function validarRegistro(){
+  const nombre   = $('nombre').value.trim();
   const telefono = $('telefono').value.trim();
-  const cedula = $('cedula').value.trim();
-  const email = $('email').value.trim();
+  const cedula   = $('cedula').value.trim();
+  const email    = $('email').value.trim();
 
   if (!nombre || !telefono || !cedula || !email){
     alert('Completa todos los campos');
@@ -125,28 +126,50 @@ function validarRegistro(){
 
   usuarioActual = { nombre, telefono, cedula, email };
 
-  (async () => {
-    // upsert de usuario por cédula
-    let { data: existe } = await supabase
+  try {
+    // 1) Upsert de usuario por cédula
+    let { data: existe, error: errSel } = await supabase
       .from('usuarios').select('id').eq('cedula', cedula).maybeSingle();
+    if (errSel) throw errSel;
+
     let uid = existe?.id;
     if (!uid){
-      let { data: ins } = await supabase
+      const { data: ins, error: errIns } = await supabase
         .from('usuarios')
         .insert({ nombre, telefono, cedula, email })
         .select('id')
         .single();
+      if (errIns) throw errIns;
       uid = ins.id;
     }
     usuarioActual.id = uid;
 
-    // pasar a pago
+    // 2) Crear PENDIENTE + RESERVA por 5 minutos (sin bloquear si ya tiene otro)
+    const { data: compId, error: errHold } = await supabase.rpc('create_pending_and_hold', {
+      _usuario_id: uid,
+      _cantidad: cantidadElegida,
+      _timeout_min: 5
+    });
+    if (errHold) {
+      alert(errHold.message || 'No se pudo reservar la cantidad seleccionada. Intenta con menos.');
+      return;
+    }
+
+    // Guardar id de este comprobante pendiente (para subirComprobante)
+    usuarioActual.comprobantePendienteId = compId;
+
+    // 3) Ir a Pago
     ocultarTodo();
     $('pago').style.display = '';
-    $('montoPago').textContent = 
-  `Cantidad de cartones: ${cantidadElegida} — Monto a pagar: ${fmtBs(cantidadElegida * PRECIO_TICKET)}`;
-  })();
+    $('montoPago').textContent =
+      `Cantidad de cartones: ${cantidadElegida} — Monto a pagar: ${fmtBs(cantidadElegida * PRECIO_TICKET)}`;
+
+  } catch (e){
+    console.error(e);
+    alert(e.message || 'Ocurrió un error. Intenta de nuevo.');
+  }
 }
+
 
 /* ========= PAGO & COMPROBANTE ========= */
 async function subirComprobante(){
@@ -162,39 +185,42 @@ async function subirComprobante(){
     return;
   }
 
-  // subida al bucket (público en tu proyecto actual)
-  const nombreArchivo = `${usuarioActual.cedula}_${Date.now()}.${file.name.split('.').pop()}`;
-  const { data: up, error: upErr } = await supabase
-    .storage.from('comprobantes')
-    .upload(nombreArchivo, file, { upsert: true });
+  try{
+    // 1) Subir archivo a Storage
+    const nombreArchivo = `${usuarioActual.cedula}_${Date.now()}.${file.name.split('.').pop()}`;
+    const { error: upErr } = await supabase
+      .storage.from('comprobantes')
+      .upload(nombreArchivo, file, { upsert: true });
+    if (upErr) throw upErr;
 
-  if (upErr){
-    alert('Error subiendo comprobante: ' + upErr.message);
-    return;
+    const { data: pub } = supabase.storage.from('comprobantes').getPublicUrl(nombreArchivo);
+    const url = pub.publicUrl;
+
+    // 2) Actualizar el comprobante pendiente
+    const compId = usuarioActual?.comprobantePendienteId;
+    if (!compId){ alert('No hay comprobante pendiente asociado.'); return; }
+
+    const { error: updErr } = await supabase
+      .from('comprobantes')
+      .update({ referencia, archivo_url: url })
+      .eq('id', compId);
+    if (updErr) throw updErr;
+
+    // 3) ❄️ CONGELAR la reserva: que NO caduque
+    const { error: fixErr } = await supabase.rpc('confirm_hold_after_receipt', {
+      _comp_id: compId
+    });
+    if (fixErr) throw fixErr;
+
+    alert('¡Comprobante enviado! Tu reserva quedó asegurada hasta que el admin apruebe.');
+    irInicio();
+
+  } catch (e){
+    console.error(e);
+    alert('No se pudo procesar el comprobante: ' + (e.message || e));
   }
-
-  const { data: pub } = supabase.storage.from('comprobantes').getPublicUrl(nombreArchivo);
-  const url = pub.publicUrl;
-
-  // crear comprobante: guarda CANTIDAD, no tickets
-  const { error: insErr } = await supabase.from('comprobantes').insert({
-    usuario_id: usuarioActual.id,
-    cantidad: cantidadElegida,     // 👈 clave
-    tickets: [],                   // vacío hasta la aprobación
-    archivo_url: url,
-    referencia,
-    aprobado: false,
-    rechazado: false
-  });
-
-  if (insErr){
-    alert('Error guardando comprobante: ' + insErr.message);
-    return;
-  }
-
-  alert('¡Comprobante enviado! Te avisaremos cuando sea aprobado.');
-  irInicio();
 }
+
 
 /* ========= CONSULTA ========= */
 async function consultarTickets(){
@@ -256,6 +282,8 @@ async function loginAdmin(){
 }
 
 async function cargarComprobantes(){
+   await supabase.rpc('liberar_reservas_viejas', { _minutos: 5 });
+
   await actualizarPrecioTicket();
 
   // mostrar configuraciones actuales
@@ -312,81 +340,50 @@ async function cargarComprobantes(){
 /* aprobar: asigna tickets aleatorios y aprueba en una transacción (RPC) */
 window.aprobarComprobante = async function(id){
   try{
-    const { data, error } = await supabase.rpc('approve_and_assign_random', { _comp_id: id });
+    const { data, error } = await supabase.rpc('approve_using_holds', {
+      _comp_id: id,
+      _timeout_min: 5
+    });
     if (error) throw error;
-    const lista = Array.isArray(data) ? data.join(', ') : '—';
-    alert(`Aprobado ✅\nTickets asignados: ${lista}`);
+    alert(`Aprobado ✅\nTickets asignados: ${(data||[]).join(', ')}`);
   }catch(e){
-    console.error(e);
     alert('Error al aprobar/asignar: ' + (e.message || e));
   }finally{
     await cargarComprobantes();
-    await limpiarComprobantesAprobadosSi(50);
   }
 };
 
 /* rechazar: (antes de aprobar) sólo marca rechazado */
 window.rechazarComprobante = async function(id){
+  if (!confirm('¿Rechazar y liberar los tickets de este comprobante?')) return;
   try{
-    await supabase.from('comprobantes')
-      .update({ aprobado:false, rechazado:true })
-      .eq('id', id);
-    alert('Comprobante rechazado');
+    // libera todo y borra el comprobante
+    const { error } = await supabase.rpc('cancelar_y_liberar_comprobante', { _comp_id: id });
+    if (error) throw error;
+    alert('✅ Rechazado y liberado.');
   }catch(e){
-    alert('Error al rechazar: ' + (e.message||e));
+    alert('❌ Error al rechazar: ' + (e.message || e));
   }finally{
     await cargarComprobantes();
   }
 };
 
+
 /* eliminar: borra comprobante; como los tickets sólo se asignan al aprobar, aquí no hay que liberar */
 window.eliminarComprobante = async function(id){
-  if (!confirm('¿Eliminar este comprobante? Si estaba aprobado, liberarás sus tickets.')) return;
+  if (!confirm('¿Eliminar este comprobante? Liberará sus tickets (aprobados o reservados).')) return;
 
-  try {
-    // 1) Traer el comprobante (para conocer sus tickets y el archivo)
-    const { data: comp, error: e1 } = await supabase
-      .from('comprobantes')
-      .select('id, aprobado, tickets, archivo_url')
-      .eq('id', id)
-      .maybeSingle();
-    if (e1) throw e1;
-
-    // 2) Si estaba aprobado y tiene tickets, liberarlos
-    if (comp?.aprobado && Array.isArray(comp.tickets) && comp.tickets.length){
-      const numeros = comp.tickets.filter(n => n != null);
-      const { error: e2 } = await supabase
-        .from('tickets')
-        .update({
-          disponible: true,
-          vendido: false,
-          reservado_por: null,
-          reservado_en: null,
-          // comprobante_id: null,  // si usas esta columna
-        })
-        .in('numero', numeros);
-      if (e2) throw e2;
-    }
-
-    // 3) (Opcional) borrar el archivo del bucket 'comprobantes'
-    if (comp?.archivo_url){
-      const partes = comp.archivo_url.split('/');
-      const nombre = partes[partes.length - 1];
-      await supabase.storage.from('comprobantes').remove([nombre]);
-    }
-
-    // 4) Borrar el comprobante
-    const { error: e3 } = await supabase.from('comprobantes').delete().eq('id', id);
-    if (e3) throw e3;
-
-    alert('✅ Comprobante eliminado. Tickets liberados (si aplicaba).');
-  } catch (e) {
+  try{
+    const { error } = await supabase.rpc('cancelar_y_liberar_comprobante', { _comp_id: id });
+    if (error) throw error;
+    alert('✅ Comprobante eliminado y tickets liberados.');
+  }catch(e){
     alert('❌ Error al eliminar: ' + (e.message || e));
-  } finally {
+  }finally{
     await cargarComprobantes();
   }
-  await limpiarComprobantesAprobadosSi(50);
 };
+
 
 /* guardar config admin */
 async function guardarPrecioTicket(){
@@ -419,52 +416,12 @@ async function mostrarFotoInicio(){
   }
 }
 
-/* ========= SORTEADOR (SIN CAMBIOS GRANDES) ========= */
-let sorteando = false;
-async function iniciarSorteo(){
-  if (sorteando) return;
-  sorteando = true;
-  const el = $('maquinaSorteo');
-  let n = 0;
-
-  const { data: comprobantes } = await supabase
-    .from('comprobantes')
-    .select('tickets, usuarios(nombre,cedula,telefono)')
-    .eq('aprobado', true);
-
-  const ticketsAprobados = [];
-  (comprobantes||[]).forEach(c=>{
-    (c.tickets||[]).forEach(num=>{
-      ticketsAprobados.push({ num, usuario: c.usuarios });
-    });
-  });
-
-  if (!ticketsAprobados.length){
-    el.textContent = '000000';
-    $('ganador').textContent = "No hay tickets participantes";
-    sorteando = false;
-    return;
-  }
-
-  const interval = setInterval(()=>{
-    el.textContent = String(Math.floor(Math.random()*1000000)).padStart(6,'0');
-    n++;
-    if (n > 30){
-      clearInterval(interval);
-      const ganador = ticketsAprobados[Math.floor(Math.random()*ticketsAprobados.length)];
-      el.textContent = String(ganador.num).padStart(6,'0');
-      $('ganador').innerHTML = `<b>GANADOR:</b> ${esc(ganador.num)}<br>${esc(ganador.usuario?.nombre||'')}
-      <br>Cédula: ${esc(ganador.usuario?.cedula||'')}<br>Tel: ${esc(ganador.usuario?.telefono||'')}`;
-      sorteando = false;
-    }
-  }, 90);
-}
-window.iniciarSorteo = iniciarSorteo;
 
 /* ========= INICIO AL CARGAR ========= */
 window.onload = async function(){
   ocultarTodo();
   $('inicio').style.display = '';
+   await supabase.rpc('liberar_reservas_viejas', { _minutos: 5 });
   await actualizarPrecioTicket();
   await mostrarFotoInicio();
   seleccionarCantidad(2);
@@ -901,4 +858,3 @@ async function buscarTicket(){
   }
 }
 window.buscarTicket = buscarTicket;
-
