@@ -108,6 +108,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 function continuarCompra(){
+
+   if (!ventasAbiertas) {
+    alert('Las ventas están cerradas en este momento. No puedes participar.');
+    return; // Si las ventas están cerradas, no hacemos nada
+  }
+
   mostrarRegistro();
 }
 
@@ -858,3 +864,65 @@ async function buscarTicket(){
   }
 }
 window.buscarTicket = buscarTicket;
+
+// Variables para controlar el estado de las ventas
+let ventasAbiertas = false;
+
+// Función para abrir las ventas
+async function abrirVentas() {
+  try {
+    // Actualizamos la configuración en la tabla 'config' para marcar las ventas abiertas
+    await supabase.from('config').upsert([{ clave: 'ventas_abiertas', valor: 'true' }]);
+    
+    ventasAbiertas = true;
+    alert('Las ventas están ahora abiertas.');
+    
+    // Hacer cualquier otra cosa que necesites (mostrar otros botones, habilitar formularios, etc.)
+  } catch (e) {
+    console.error(e);
+    alert('Hubo un error al abrir las ventas.');
+  }
+}
+
+// Función para cerrar las ventas
+async function cerrarVentas() {
+  try {
+    // Actualizamos la configuración en la tabla 'config' para marcar las ventas cerradas
+    await supabase.from('config').upsert([{ clave: 'ventas_abiertas', valor: 'false' }]);
+    
+    ventasAbiertas = false;
+    alert('Las ventas están ahora cerradas.');
+    
+    // Hacer cualquier otra cosa que necesites (deshabilitar botones de compra, mostrar mensaje, etc.)
+  } catch (e) {
+    console.error(e);
+    alert('Hubo un error al cerrar las ventas.');
+  }
+}
+
+// Función para verificar si las ventas están abiertas (en la carga de la página)
+async function verificarEstadoVentas() {
+  const { data, error } = await supabase
+    .from('config')
+    .select('valor')
+    .eq('clave', 'ventas_abiertas')
+    .single();
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  if (data?.valor === 'true') {
+    ventasAbiertas = true;
+    // Habilitar botones de compra
+  } else {
+    ventasAbiertas = false;
+    // Deshabilitar botones de compra
+  }
+}
+
+// Llamamos a la función de verificación de estado cuando cargue la página
+window.onload = async function() {
+  await verificarEstadoVentas();
+};
